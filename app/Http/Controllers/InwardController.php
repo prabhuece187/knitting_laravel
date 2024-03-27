@@ -14,9 +14,6 @@ class InwardController extends Controller
 {
     public function index(Request $request)
     {
-        // $data = Inward::with('customer')->with('mill')->get();
-        // return Response::json($data);
-
         $inward = $request->all();
 
         $count = $inward['limit'];
@@ -31,7 +28,7 @@ class InwardController extends Controller
         $data = $data->take($count)
                 ->skip($count*($page-1))
                 ->orderby('inwards.id','desc')
-                ->get();  
+                ->get();
 
         return response(['data' => $data , 'total' => $total]);
     }

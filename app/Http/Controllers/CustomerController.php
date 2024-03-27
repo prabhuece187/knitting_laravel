@@ -15,9 +15,23 @@ class CustomerController extends Controller
      */
     public function index()
     {
-        $data = DB::table('customers')->get();
+        $customer = $request->all();
 
-        return response($data);
+        $count = $customer['limit'];
+        $page  = $customer['curpage'];
+
+        $sorting = "desc";
+
+        $data = DB::table('customers');
+
+        $total = $data->count();
+
+        $data = $data->take($count)
+                ->skip($count*($page-1))
+                ->orderby('customers.id','desc')
+                ->get();
+
+        return response(['data' => $data , 'total' => $total]);
     }
 
     /**
