@@ -10,7 +10,7 @@ class MillController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         $mill = $request->all();
 
@@ -26,7 +26,7 @@ class MillController extends Controller
         $data = $data->take($count)
                 ->skip($count*($page-1))
                 ->orderby('mills.id','desc')
-                ->get();  
+                ->get();
 
         return response(['data' => $data , 'total' => $total]);
     }

@@ -10,7 +10,7 @@ class ItemController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         $item = $request->all();
 
@@ -26,7 +26,7 @@ class ItemController extends Controller
         $data = $data->take($count)
                 ->skip($count*($page-1))
                 ->orderby('items.id','desc')
-                ->get();  
+                ->get();
 
         return response(['data' => $data , 'total' => $total]);
     }
