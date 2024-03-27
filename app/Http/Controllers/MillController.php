@@ -12,10 +12,23 @@ class MillController extends Controller
      */
     public function index()
     {
-        $data = Mill::select('*')
-        ->get();
+        $mill = $request->all();
 
-        return response($data);
+        $count = $mill['limit'];
+        $page  = $mill['curpage'];
+
+        $sorting = "desc";
+
+        $data = DB::table('mills');
+
+        $total = $data->count();
+
+        $data = $data->take($count)
+                ->skip($count*($page-1))
+                ->orderby('mills.id','desc')
+                ->get();  
+
+        return response(['data' => $data , 'total' => $total]);
     }
 
     /**

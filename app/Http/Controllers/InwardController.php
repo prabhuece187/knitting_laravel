@@ -14,8 +14,26 @@ class InwardController extends Controller
 {
     public function index(Request $request)
     {
-        $data = Inward::with('customer')->with('mill')->get();
-        return Response::json($data);
+        // $data = Inward::with('customer')->with('mill')->get();
+        // return Response::json($data);
+
+        $inward = $request->all();
+
+        $count = $inward['limit'];
+        $page  = $inward['curpage'];
+
+        $sorting = "desc";
+
+        $data = Inward::with('customer')->with('mill');
+
+        $total = $data->count();
+
+        $data = $data->take($count)
+                ->skip($count*($page-1))
+                ->orderby('inwards.id','desc')
+                ->get();  
+
+        return response(['data' => $data , 'total' => $total]);
     }
 
     public function InwardCreate(Request $request)

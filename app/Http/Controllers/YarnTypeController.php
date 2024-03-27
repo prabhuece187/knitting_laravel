@@ -12,10 +12,23 @@ class YarnTypeController extends Controller
      */
     public function index()
     {
-        $data = YarnType::select('*')
-        ->get();
+        $yarn = $request->all();
 
-        return response($data);
+        $count = $yarn['limit'];
+        $page  = $yarn['curpage'];
+
+        $sorting = "desc";
+
+        $data = DB::table('yarn_types');
+
+        $total = $data->count();
+
+        $data = $data->take($count)
+                ->skip($count*($page-1))
+                ->orderby('yarn_types.id','desc')
+                ->get();  
+
+        return response(['data' => $data , 'total' => $total]);
     }
 
     /**

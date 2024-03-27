@@ -12,10 +12,23 @@ class ItemController extends Controller
      */
     public function index()
     {
-        $data = Item::select('*')
-        ->get();
+        $item = $request->all();
 
-        return response($data);
+        $count = $item['limit'];
+        $page  = $item['curpage'];
+
+        $sorting = "desc";
+
+        $data = DB::table('items');
+
+        $total = $data->count();
+
+        $data = $data->take($count)
+                ->skip($count*($page-1))
+                ->orderby('items.id','desc')
+                ->get();  
+
+        return response(['data' => $data , 'total' => $total]);
     }
 
     /**

@@ -16,8 +16,23 @@ class OutwardController extends Controller
 {
     public function index(Request $request)
     {
-        $data = Outward::with('customer')->with('mill')->get();
-        return response::json($data);
+        $outward = $request->all();
+
+        $count = $outward['limit'];
+        $page  = $outward['curpage'];
+
+        $sorting = "desc";
+
+        $data = Outward::with('customer')->with('mill');
+
+        $total = $data->count();
+
+        $data = $data->take($count)
+                ->skip($count*($page-1))
+                ->orderby('outwards.id','desc')
+                ->get();  
+
+        return response(['data' => $data , 'total' => $total]);
     }
 
     public function OutwardCreate(Request $request)
