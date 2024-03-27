@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Mill;
+use DB;
 
 class MillController extends Controller
 {
