@@ -14,6 +14,9 @@ class Mill extends Model
     protected $fillable = [
         'user_id',
         'mill_name',
+        'mobile_number',
+        'address',
+        'description',
     ];
 
     public function inward(): HasOne

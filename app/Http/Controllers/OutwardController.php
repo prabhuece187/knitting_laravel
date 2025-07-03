@@ -14,23 +14,88 @@ use App\Models\Mill;
 
 class OutwardController extends Controller
 {
+    // public function index(Request $request)
+    // {
+    //     $outward = $request->all();
+
+    //     $count = $outward['limit'];
+    //     $page  = $outward['curpage'];
+
+    //     $sorting = "desc";
+
+    //     $data = Outward::with('customer')->with('mill');
+
+    //     $total = $data->count();
+
+    //     $data = $data->take($count)
+    //             ->skip($count*($page-1))
+    //             ->orderby('outwards.id','desc')
+    //             ->get();  
+
+    //     return response(['data' => $data , 'total' => $total]);
+    // }
+
     public function index(Request $request)
     {
         $outward = $request->all();
 
-        $count = $outward['limit'];
-        $page  = $outward['curpage'];
+        if($outward['searchInput'] === "")
+        {
+            $count = $outward['limit'];
+            $page  = $outward['curpage'];
 
-        $sorting = "desc";
+            $sorting = "desc";
 
-        $data = Outward::with('customer')->with('mill');
+            $data = Outward::with('customer')->with('mill');
 
-        $total = $data->count();
+            $total = $data->count();
 
-        $data = $data->take($count)
-                ->skip($count*($page-1))
-                ->orderby('outwards.id','desc')
-                ->get();  
+            $data = $data->take($count)
+                    ->skip($count*($page-1))
+                    ->orderby('outwards.id','desc')
+                    ->get();
+        }
+        else
+        {
+            $count = $outward['limit'];
+            $page  = $outward['curpage'];
+
+            $sorting = "desc";
+
+    $datas = Outward::with(['customer', 'mill','inward'])->where(function ($query) use ($outward) {
+                    $search = '%' . $outward['searchInput'] . '%';
+
+            $query->where('outwards.customer_id', 'LIKE', $search)
+                      ->orWhereHas('customer', function ($q) use ($search) {
+                         $q->where('customer_name', 'LIKE', $search);
+                      })
+                  ->orWhere('outwards.mill_id', 'LIKE', $search)
+                      ->orWhereHas('mill', function ($q) use ($search) {
+                         $q->where('mill_name', 'LIKE', $search);
+                      })
+                  ->orWhere('outwards.inward_id', 'LIKE', $search)
+                      ->orWhereHas('inward', function ($q) use ($search) {
+                         $q->where('inward_no', 'LIKE', $search);
+                      })
+            ->orWhere('outwards.id', 'LIKE', $search)
+            ->orWhere('outwards.outward_no', 'LIKE', $search)
+            ->orWhere('outwards.outward_invoice_no', 'LIKE', $search)
+            ->orWhere('outwards.outward_tin_no', 'LIKE', $search)
+            ->orWhere('outwards.outward_date', 'LIKE', $search)
+            ->orWhere('outwards.total_weight', 'LIKE', $search)
+            ->orWhere('outwards.total_quantity', 'LIKE', $search)
+            ->orWhere('outwards.outward_vehicle_no', 'LIKE', $search)
+            ->orWhere('outwards.status', 'LIKE', $search);
+        });
+
+
+            $total = $datas->count();
+
+            $data = $datas->take($count)
+                    ->skip($count*($page-1))
+                    ->orderby('outwards.id','desc')
+                    ->get();
+        }
 
         return response(['data' => $data , 'total' => $total]);
     }

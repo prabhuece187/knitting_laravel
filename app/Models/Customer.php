@@ -15,9 +15,8 @@ class Customer extends Model
 
     protected $fillable = [
         'user_id',
+        'state_id',
         'customer_name',
-        'customer_state',
-        'customer_state_code',
         'customer_gst_no',
         'customer_mobile',
         'customer_email',
@@ -32,5 +31,10 @@ class Customer extends Model
     public function outward(): HasOne
     {
         return $this->hasOne(Outward::class);
+    }
+
+    public function state(): BelongsTo
+    {
+        return $this->belongsTo(State::class);
     }
 }

@@ -4,8 +4,10 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 use App\Models\User;
+use App\Models\State;
 use App\Models\Customer;
 use App\Models\YarnType;
 use App\Models\Item;
@@ -22,6 +24,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(StateSeeder::class);
         User::factory(2)->create();
         Customer::factory(3)->create();
         YarnType::factory(3)->create();

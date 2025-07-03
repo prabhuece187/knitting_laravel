@@ -17,20 +17,51 @@ class CustomerController extends Controller
     {
         $customer = $request->all();
 
-        $count = $customer['limit'];
-        $page  = $customer['curpage'];
+        if($customer['searchInput'] === "")
+        {
+            $count = $customer['limit'];
+            $page  = $customer['curpage'];
 
-        $sorting = "desc";
+            $sorting = "desc";
 
-        $data = DB::table('customers');
+            $data = DB::table('customers')
+                    ->leftJoin('states', 'customers.state_id', '=', 'states.id')
+                    ->select(
+                    'customers.*',
+                    'states.state_name'
+                    );
 
-        $total = $data->count();
+            $total = $data->count();
 
-        $data = $data->take($count)
-                ->skip($count*($page-1))
-                ->orderby('customers.id','desc')
-                ->get();
+            $data = $data->take($count)
+                    ->skip($count*($page-1))
+                    ->orderby('customers.id','desc')
+                    ->get();
+        }
+        else
+        {
+            $count = $customer['limit'];
+		    $page  = $customer['curpage'];
 
+		    $sorting = "desc";
+
+        	$datas = DB::table('customers')
+                     ->leftJoin('states', 'customers.state_id', '=', 'states.id')
+                    ->where('customers.id','LIKE', '%' . $customer['searchInput'] . '%')
+			        ->orWhere('customers.customer_gst_no','LIKE', '%' . $customer['searchInput'] . '%')
+			        ->orWhere('customers.customer_mobile','LIKE', '%' . $customer['searchInput'] . '%')
+			        ->orWhere('customers.customer_email','LIKE', '%' . $customer['searchInput'] . '%')
+			        ->orWhere('customers.customer_address','LIKE', '%' . $customer['searchInput'] . '%');
+
+
+        	$total = $datas->count();
+
+        	$data = $datas->take($count)
+                	->skip($count*($page-1))
+			        ->orderby('customers.id','desc')
+                	->get();
+
+	}
         return response(['data' => $data , 'total' => $total]);
     }
 
@@ -51,7 +82,7 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $customer = $request->all();
-        $customer['customer_state'] = $customer['customer_state']['label'];
+
         $customer = Customer::create($customer);
 
         return response($customer);
@@ -73,7 +104,7 @@ class CustomerController extends Controller
      */
     public function edit(string $id)
     {
-        $customer = Customer::find($id);
+        $customer = Customer::with('state')->find($id);
 
         return response($customer);
     }

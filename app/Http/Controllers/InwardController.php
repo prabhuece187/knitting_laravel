@@ -16,19 +16,51 @@ class InwardController extends Controller
     {
         $inward = $request->all();
 
-        $count = $inward['limit'];
-        $page  = $inward['curpage'];
+        if($inward['searchInput'] === "")
+        {
+            $count = $inward['limit'];
+            $page  = $inward['curpage'];
 
-        $sorting = "desc";
+            $sorting = "desc";
 
-        $data = Inward::with('customer')->with('mill');
+            $data = Inward::with('customer')->with('mill');
 
-        $total = $data->count();
+            $total = $data->count();
 
-        $data = $data->take($count)
-                ->skip($count*($page-1))
-                ->orderby('inwards.id','desc')
-                ->get();
+            $data = $data->take($count)
+                    ->skip($count*($page-1))
+                    ->orderby('inwards.id','desc')
+                    ->get();
+        }
+        else
+        {
+            $count = $inward['limit'];
+            $page  = $inward['curpage'];
+
+            $sorting = "desc";
+
+            $datas = Inward::with('customer')->with('mill')
+                    ->where('inwards.customer_id','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('customers.customer_name','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.mill_id','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('mills.mill_name','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.id','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.inward_no','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.inward_invoice_no','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.inward_tin_no','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.inward_date','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.total_weight','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.total_quantity','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.inward_vehicle_no','LIKE', '%' . $inward['searchInput'] . '%')
+                    ->orWhere('inwards.status','LIKE', '%' . $inward['searchInput'] . '%');
+
+            $total = $datas->count();
+
+            $data = $datas->take($count)
+                    ->skip($count*($page-1))
+                    ->orderby('inwards.id','desc')
+                    ->get();
+        }
 
         return response(['data' => $data , 'total' => $total]);
     }

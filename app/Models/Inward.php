@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Customer;
 use App\Models\Mill;
 use App\Models\InwardDetail;
+use App\Models\Outward;
 
 class Inward extends Model
 {
@@ -41,5 +42,10 @@ class Inward extends Model
     public function mill(): BelongsTo
     {
         return $this->belongsTo(Mill::class);
+    }
+
+    public function outward(): BelongsTo
+    {
+        return $this->belongsTo(Outward::class);
     }
 }
