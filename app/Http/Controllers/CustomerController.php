@@ -131,4 +131,17 @@ class CustomerController extends Controller
 
         return response($customer);
     }
+
+    public function CustomerSelectList(Request $request)
+    {
+        $search = $request->input('q');
+        
+        $query = DB::table('customers')->select('id', 'customer_name');
+
+        if ($search) {
+            $query->where('customer_name', 'like', "%$search%");
+        }
+
+        return response()->json($query->get());
+    }
 }

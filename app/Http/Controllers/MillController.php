@@ -97,4 +97,17 @@ class MillController extends Controller
 
         return response($mill);
     }
+
+    public function MillSelectList(Request $request)
+    {
+        $search = $request->input('q');
+        
+        $query = DB::table('mills')->select('id', 'mill_name');
+
+        if ($search) {
+            $query->where('mill_name', 'like', "%$search%");
+        }
+
+        return response()->json($query->get());
+    }
 }

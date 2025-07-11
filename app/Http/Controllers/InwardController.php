@@ -16,53 +16,43 @@ class InwardController extends Controller
     {
         $inward = $request->all();
 
-        if($inward['searchInput'] === "")
-        {
-            $count = $inward['limit'];
-            $page  = $inward['curpage'];
+        $count = $inward['limit'];
+        $page  = $inward['curpage'];
+        $search = $inward['searchInput'];
+        $sorting = "desc";
 
-            $sorting = "desc";
+        $query = Inward::with('customer', 'mill');
 
-            $data = Inward::with('customer')->with('mill');
-
-            $total = $data->count();
-
-            $data = $data->take($count)
-                    ->skip($count*($page-1))
-                    ->orderby('inwards.id','desc')
-                    ->get();
-        }
-        else
-        {
-            $count = $inward['limit'];
-            $page  = $inward['curpage'];
-
-            $sorting = "desc";
-
-            $datas = Inward::with('customer')->with('mill')
-                    ->where('inwards.customer_id','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('customers.customer_name','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.mill_id','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('mills.mill_name','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.id','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.inward_no','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.inward_invoice_no','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.inward_tin_no','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.inward_date','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.total_weight','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.total_quantity','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.inward_vehicle_no','LIKE', '%' . $inward['searchInput'] . '%')
-                    ->orWhere('inwards.status','LIKE', '%' . $inward['searchInput'] . '%');
-
-            $total = $datas->count();
-
-            $data = $datas->take($count)
-                    ->skip($count*($page-1))
-                    ->orderby('inwards.id','desc')
-                    ->get();
+        if (!empty($search)) {
+            $query = $query->where(function ($q) use ($search) {
+                $q->where('inwards.customer_id', 'LIKE', "%$search%")
+                ->orWhere('inwards.mill_id', 'LIKE', "%$search%")
+                ->orWhere('inwards.id', 'LIKE', "%$search%")
+                ->orWhere('inwards.inward_no', 'LIKE', "%$search%")
+                ->orWhere('inwards.inward_invoice_no', 'LIKE', "%$search%")
+                ->orWhere('inwards.inward_tin_no', 'LIKE', "%$search%")
+                ->orWhere('inwards.inward_date', 'LIKE', "%$search%")
+                ->orWhere('inwards.total_weight', 'LIKE', "%$search%")
+                ->orWhere('inwards.total_quantity', 'LIKE', "%$search%")
+                ->orWhere('inwards.inward_vehicle_no', 'LIKE', "%$search%")
+                ->orWhere('inwards.status', 'LIKE', "%$search%");
+            })
+            ->orWhereHas('customer', function ($q) use ($search) {
+                $q->where('customer_name', 'LIKE', "%$search%");
+            })
+            ->orWhereHas('mill', function ($q) use ($search) {
+                $q->where('mill_name', 'LIKE', "%$search%");
+            });
         }
 
-        return response(['data' => $data , 'total' => $total]);
+        $total = $query->count();
+
+        $data = $query->orderBy('inwards.id', $sorting)
+                    ->take($count)
+                    ->skip($count * ($page - 1))
+                    ->get();
+
+        return response(['data' => $data, 'total' => $total]);
     }
 
     public function InwardCreate(Request $request)
@@ -76,7 +66,7 @@ class InwardController extends Controller
         $input = $request->all();
         $data = Inward::create($input);
 
-        $details = $request->Items;
+        $details = $request->inward_details;
 
         foreach ($details as $detail)
         {
@@ -108,7 +98,9 @@ class InwardController extends Controller
 
         InwardDetail::where('inward_id',$id)->delete();
 
-        $details = $request->Items;
+        // $details = $request->Items;
+
+        $details = $request->inward_details;
         foreach ($details as $detail)
         {
             $detail['inward_id'] = $action->id;

@@ -96,4 +96,17 @@ class ItemController extends Controller
 
         return response($item);
     }
+
+    public function ItemSelectList(Request $request)
+    {
+        $search = $request->input('q');
+        
+        $query = DB::table('items')->select('id', 'item_name');
+
+        if ($search) {
+            $query->where('item', 'like', "%$search%");
+        }
+
+        return response()->json($query->get());
+    }
 }

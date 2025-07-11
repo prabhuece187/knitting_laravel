@@ -97,4 +97,17 @@ class YarnTypeController extends Controller
 
         return response($yarntype);
     }
+
+    public function YarnTypeSelectList(Request $request)
+    {
+        $search = $request->input('q');
+        
+        $query = DB::table('yarn_types')->select('id', 'yarn_type');
+
+        if ($search) {
+            $query->where('yarn_type', 'like', "%$search%");
+        }
+
+        return response()->json($query->get());
+    }
 }

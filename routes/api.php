@@ -36,6 +36,10 @@ Route::apiResource('yarn_types', YarnTypeController::class);
 Route::apiResource('states', StateController::class);
 
 Route::get('state_list', [StateController::class, 'StateSelectList']);
+Route::get('customer_list', [CustomerController::class, 'CustomerSelectList']);
+Route::get('mill_list', [MillController::class, 'MillSelectList']);
+Route::get('yarn_type_list', [YarnTypeController::class, 'YarnTypeSelectList']);
+Route::get('item_list', [ItemController::class, 'ItemSelectList']);
 
 
 // ----------------- inward ----------------------------
@@ -44,7 +48,7 @@ Route::get('inward', [InwardController::class, 'index']);
 Route::post('inward_add', [InwardController::class, 'Store']);
 Route::get('inward_create', [InwardController::class, 'InwardCreate']);
 Route::get('inward_edit/{id}', [InwardController::class, 'InwardEdit']);
-Route::post('inward_update/{id}', [InwardController::class, 'InwardUpdate']);
+Route::put('inward_update/{id}', [InwardController::class, 'InwardUpdate']);
 
 // ----------------- outward ----------------------------
 
