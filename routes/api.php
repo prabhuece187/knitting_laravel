@@ -10,6 +10,7 @@ use App\Http\Controllers\YarnTypeController;
 use App\Http\Controllers\InwardController;
 use App\Http\Controllers\OutwardController;
 use App\Http\Controllers\StateController;
+use App\Http\Controllers\ReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -56,4 +57,8 @@ Route::get('outward', [OutwardController::class, 'index']);
 Route::post('outward_add', [OutwardController::class, 'Store']);
 Route::get('outward_create', [OutwardController::class, 'OutwardCreate']);
 Route::get('outward_edit/{id}', [OutwardController::class, 'OutwardEdit']);
-Route::post('outward_update/{id}', [OutwardController::class, 'OutwardUpdate']);
+Route::put('outward_update/{id}', [OutwardController::class, 'OutwardUpdate']);
+
+// ----------------- report ----------------------------
+
+Route::post('over-all-report', [ReportController::class, 'OverAllReport']);
