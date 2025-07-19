@@ -44,7 +44,7 @@ class Inward extends Model
         return $this->belongsTo(Mill::class);
     }
 
-    public function outward(): BelongsTo
+    public function outward(): HasMany
     {
         return $this->belongsTo(Outward::class);
     }

@@ -42,7 +42,7 @@ class ReportController extends Controller
                 $query->where('inward_invoice_no', 'like', "%{$searchData}%")
                     ->orWhere('inward_tin_no', 'like', "%{$searchData}%")
                     ->orWhere('inward_no', 'like', "%{$searchData}%")
-                    ->orWhere('inward_id', 'like', "%{$searchData}%")
+                    ->orWhere('id', 'like', "%{$searchData}%")
                     ->orWhere('inward_vehicle_no', 'like', "%{$searchData}%");
             });
         }
@@ -105,5 +105,87 @@ class ReportController extends Controller
             ],
         ]);
     }
+
+    public function OverAllDetailReport(Request $request)
+    {
+        // Get filter values from request
+        $fromDate = $request->input('from_date');
+        $toDate = $request->input('to_date');
+        $customerId = $request->input('customer_id');
+        $millId = $request->input('mill_id');
+        $searchData = $request->input('search_data');
+        $inwardNo = $request->input('inward_no');
+        $inwardId = $request->input('inward_id');
+
+        // Base query for Inward with related data
+        $inwardQuery = Inward::with([
+            'customer',
+            'mill',
+            'inward_details',
+            'outwards.outward_details.item',
+            'outwards.outward_details.yarn_type',
+            'outwards.customer',        // optional: if you need customer details on outward
+            'outwards.mill'             // optional: if you need mill details on outward
+        ]);
+
+        // Apply filters for Inward
+        if ($fromDate) {
+            $inwardQuery->whereDate('inward_date', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $inwardQuery->whereDate('inward_date', '<=', $toDate);
+        }
+        if ($customerId) {
+            $inwardQuery->where('customer_id', $customerId);
+        }
+        if ($millId) {
+            $inwardQuery->where('mill_id', $millId);
+        }
+        if ($inwardNo) {
+            $inwardQuery->where('inward_no', $inwardNo);
+        }
+        if ($inwardId) {
+            $inwardQuery->where('id', $inwardId);
+        }
+        if ($searchData) {
+            $inwardQuery->where(function ($query) use ($searchData) {
+                $query->where('inward_invoice_no', 'like', "%{$searchData}%")
+                    ->orWhere('inward_tin_no', 'like', "%{$searchData}%")
+                    ->orWhere('inward_no', 'like', "%{$searchData}%")
+                    ->orWhere('id', 'like', "%{$searchData}%")
+                    ->orWhere('inward_vehicle_no', 'like', "%{$searchData}%");
+            });
+        }
+
+        $inwards = $inwardQuery->get();
+
+        // Totals for Inward
+        $inwardTotals = [
+            'total_weight' => $inwards->sum('total_weight'),
+            'total_quantity' => $inwards->sum('total_quantity'),
+        ];
+
+        // Totals for Outward (from all related outwards)
+        $outwardTotals = [
+            'total_weight' => $inwards->pluck('outwards')->flatten()->sum('total_weight'),
+            'total_quantity' => $inwards->pluck('outwards')->flatten()->sum('total_quantity'),
+        ];
+
+        // Calculate Balance
+        $balance = [
+            'balance_weight' => $inwardTotals['total_weight'] - $outwardTotals['total_weight'],
+            'balance_quantity' => $inwardTotals['total_quantity'] - $outwardTotals['total_quantity'],
+        ];
+
+        return response()->json([
+            'inwards' => $inwards,
+            'totals' => [
+                'inward' => $inwardTotals,
+                'outward' => $outwardTotals,
+                'balance' => $balance,
+            ],
+        ]);
+    }
+
 
 }

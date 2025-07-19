@@ -62,3 +62,4 @@ Route::put('outward_update/{id}', [OutwardController::class, 'OutwardUpdate']);
 // ----------------- report ----------------------------
 
 Route::post('over-all-report', [ReportController::class, 'OverAllReport']);
+Route::post('over-all-detail-report', [ReportController::class, 'OverAllDetailReport']);
