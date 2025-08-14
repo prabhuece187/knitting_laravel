@@ -101,12 +101,19 @@ class ItemController extends Controller
     {
         $search = $request->input('q');
         
-        $query = DB::table('items')->select('id', 'item_name');
+        $query = DB::table('items')->select('id', 'item_name','item_code');
 
         if ($search) {
             $query->where('item', 'like', "%$search%");
         }
 
         return response()->json($query->get());
+    }
+
+    public function SingleItemData(Request $request,$id)
+    {
+        $query = DB::table('items')->select('id', 'item_name','item_code')->where('items.id',$id);
+
+        return response()->json($query->first());
     }
 }

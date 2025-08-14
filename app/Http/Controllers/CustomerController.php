@@ -24,13 +24,21 @@ class CustomerController extends Controller
 
             $sorting = "desc";
 
-            $data = DB::table('customers')
-                    ->leftJoin('states', 'customers.state_id', '=', 'states.id')
-                    ->select(
-                    'customers.*',
+  	    $data = DB::table('customers')
+	            ->leftJoin('states', 'customers.state_id', '=', 'states.id')
+                ->select(
+                    'customers.id',
+                        'customers.user_id',
+                        'customers.customer_name',
+                        'customers.customer_mobile',
+                        'customers.customer_email',
+                        'customers.customer_address',
+                        'customers.customer_gst_no',
+                        'customers.state_id as customer_state_id',
+                        'customers.created_at',
+                        'customers.updated_at',
                     'states.state_name'
-                    );
-
+                );
             $total = $data->count();
 
             $data = $data->take($count)
@@ -47,11 +55,26 @@ class CustomerController extends Controller
 
         	$datas = DB::table('customers')
                      ->leftJoin('states', 'customers.state_id', '=', 'states.id')
+                     ->select(
+                        'customers.id',
+                            'customers.user_id',
+                            'customers.customer_name',
+                            'customers.customer_mobile',
+                            'customers.customer_email',
+                            'customers.customer_address',
+                            'customers.customer_gst_no',
+                            'customers.state_id as customer_state_id',
+                            'customers.created_at',
+                            'customers.updated_at',
+                        'states.state_name'
+                    )
                     ->where('customers.id','LIKE', '%' . $customer['searchInput'] . '%')
 			        ->orWhere('customers.customer_gst_no','LIKE', '%' . $customer['searchInput'] . '%')
 			        ->orWhere('customers.customer_mobile','LIKE', '%' . $customer['searchInput'] . '%')
 			        ->orWhere('customers.customer_email','LIKE', '%' . $customer['searchInput'] . '%')
-			        ->orWhere('customers.customer_address','LIKE', '%' . $customer['searchInput'] . '%');
+			        ->orWhere('customers.customer_address','LIKE', '%' . $customer['searchInput'] . '%')
+ 				    ->orWhere('states.state_name', 'LIKE', '%' . $customer['searchInput'] . '%')
+              		->orWhere('customers.state_id', 'LIKE', '%' . $customer['searchInput'] . '%');
 
 
         	$total = $datas->count();
@@ -61,9 +84,10 @@ class CustomerController extends Controller
 			        ->orderby('customers.id','desc')
                 	->get();
 
-	}
+	    }
         return response(['data' => $data , 'total' => $total]);
     }
+
 
     /**
      * Show the form for creating a new resource.
@@ -136,7 +160,7 @@ class CustomerController extends Controller
     {
         $search = $request->input('q');
         
-        $query = DB::table('customers')->select('id', 'customer_name');
+        $query = DB::table('customers')->select('id', 'customer_name','customer_mobile');
 
         if ($search) {
             $query->where('customer_name', 'like', "%$search%");
@@ -144,4 +168,13 @@ class CustomerController extends Controller
 
         return response()->json($query->get());
     }
+
+    public function SingleCustomerData(Request $request,$id)
+    { 
+        $query = DB::table('customers')->select('id', 'customer_name','customer_mobile')->where('customers.id',$id);
+
+        return response()->json($query->first());
+    }
+
+    
 }

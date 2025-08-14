@@ -102,12 +102,19 @@ class MillController extends Controller
     {
         $search = $request->input('q');
         
-        $query = DB::table('mills')->select('id', 'mill_name');
+        $query = DB::table('mills')->select('id', 'mill_name','mobile_number');
 
         if ($search) {
             $query->where('mill_name', 'like', "%$search%");
         }
 
         return response()->json($query->get());
+    }
+
+    public function SingleMillData(Request $request,$id)
+    {
+        $query = DB::table('mills')->select('id', 'mill_name')->where('mills.id',$id);
+
+        return response()->json($query->first());
     }
 }

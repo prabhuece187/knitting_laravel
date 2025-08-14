@@ -110,4 +110,11 @@ class YarnTypeController extends Controller
 
         return response()->json($query->get());
     }
+
+    public function SingleYarnTypeData(Request $request,$id)
+    {
+        $query = DB::table('yarn_types')->select('id', 'yarn_type')->where('yarn_types.id',$id);
+
+        return response()->json($query->first());
+    }
 }

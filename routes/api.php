@@ -63,3 +63,20 @@ Route::put('outward_update/{id}', [OutwardController::class, 'OutwardUpdate']);
 
 Route::post('over-all-report', [ReportController::class, 'OverAllReport']);
 Route::post('over-all-detail-report', [ReportController::class, 'OverAllDetailReport']);
+Route::get('single_customer_data/{id}', [CustomerController::class, 'SingleCustomerData']);
+Route::get('single_item_data/{id}', [ItemController::class, 'SingleItemData']);
+Route::get('single_mill_data/{id}', [MillController::class, 'SingleMillData']);
+Route::get('single_yarn_type_data/{id}', [YarnTypeController::class, 'SingleYarnTypeData']);
+
+
+Route::post('customer-ledger-inout', [ReportController::class, 'CustomerLedgerInOut']);
+Route::post('customer-ledger-itemwise', [ReportController::class, 'CustomerLedgerInOutItemWise']);
+
+Route::post('item-stock-report', [ReportController::class, 'ItemStockReport']);
+Route::post('item-stock-customerwise', [ReportController::class, 'ItemStockReportCustomerWise']);
+
+
+Route::post('mill-ledger-inout', [ReportController::class, 'MillLedgerInOut']);
+Route::post('mill-ledger-itemwise', [ReportController::class, 'MillLedgerInOutItemWise']);
+
+Route::post('yarn-type-ledger', [ReportController::class, 'YarnTypeLedger']);

@@ -48,4 +48,6 @@ class Inward extends Model
     {
         return $this->belongsTo(Outward::class);
     }
+
+    
 }
