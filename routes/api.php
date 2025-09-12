@@ -11,6 +11,7 @@ use App\Http\Controllers\InwardController;
 use App\Http\Controllers\OutwardController;
 use App\Http\Controllers\StateController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\InvoiceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -59,6 +60,14 @@ Route::get('outward_create', [OutwardController::class, 'OutwardCreate']);
 Route::get('outward_edit/{id}', [OutwardController::class, 'OutwardEdit']);
 Route::put('outward_update/{id}', [OutwardController::class, 'OutwardUpdate']);
 
+// ----------------- invoice ----------------------------
+
+Route::get('invoice', [InvoiceController::class, 'index']);
+Route::post('invoice_add', [InvoiceController::class, 'store']);
+Route::get('invoice_create', [InvoiceController::class, 'InvoiceCreate']);
+Route::get('invoice_edit/{id}', [InvoiceController::class, 'InvoiceEdit']);
+Route::put('invoice_update/{id}', [InvoiceController::class, 'InvoiceUpdate']);
+
 // ----------------- report ----------------------------
 
 Route::post('over-all-report', [ReportController::class, 'OverAllReport']);
@@ -71,12 +80,17 @@ Route::get('single_yarn_type_data/{id}', [YarnTypeController::class, 'SingleYarn
 
 Route::post('customer-ledger-inout', [ReportController::class, 'CustomerLedgerInOut']);
 Route::post('customer-ledger-itemwise', [ReportController::class, 'CustomerLedgerInOutItemWise']);
+Route::post('customer-individual-item', [ReportController::class, 'CustomerIndividualItem']);
+
 
 Route::post('item-stock-report', [ReportController::class, 'ItemStockReport']);
 Route::post('item-stock-customerwise', [ReportController::class, 'ItemStockReportCustomerWise']);
+Route::post('item-individual-customer', [ReportController::class, 'ItemIndividualCustomer']);
 
 
 Route::post('mill-ledger-inout', [ReportController::class, 'MillLedgerInOut']);
 Route::post('mill-ledger-itemwise', [ReportController::class, 'MillLedgerInOutItemWise']);
+Route::post('mill-individual-item', [ReportController::class, 'MillIndivodualItem']);
 
 Route::post('yarn-type-ledger', [ReportController::class, 'YarnTypeLedger']);
+Route::post('yarn-individual-customer', [ReportController::class, 'YarnTypeIndividualCustomer']);
