@@ -27,7 +27,7 @@ class CustomerController extends Controller
   	    $data = DB::table('customers')
 	            ->leftJoin('states', 'customers.state_id', '=', 'states.id')
                 ->select(
-                    'customers.id',
+                        'customers.id',
                         'customers.user_id',
                         'customers.customer_name',
                         'customers.customer_mobile',
@@ -37,7 +37,7 @@ class CustomerController extends Controller
                         'customers.state_id as customer_state_id',
                         'customers.created_at',
                         'customers.updated_at',
-                    'states.state_name'
+                        'states.state_name'
                 );
             $total = $data->count();
 
@@ -56,7 +56,7 @@ class CustomerController extends Controller
         	$datas = DB::table('customers')
                      ->leftJoin('states', 'customers.state_id', '=', 'states.id')
                      ->select(
-                        'customers.id',
+                            'customers.id',
                             'customers.user_id',
                             'customers.customer_name',
                             'customers.customer_mobile',
@@ -66,7 +66,7 @@ class CustomerController extends Controller
                             'customers.state_id as customer_state_id',
                             'customers.created_at',
                             'customers.updated_at',
-                        'states.state_name'
+                            'states.state_name'
                     )
                     ->where('customers.id','LIKE', '%' . $customer['searchInput'] . '%')
 			        ->orWhere('customers.customer_gst_no','LIKE', '%' . $customer['searchInput'] . '%')

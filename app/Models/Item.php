@@ -15,9 +15,10 @@ class Item extends Model
     protected $fillable = [
         'user_id',
         'item_name',
-        'item_code',
+        'hsn_code',
         'unit',
         'description',
+        'price',
     ];
 
     public function inward_detail(): HasOne

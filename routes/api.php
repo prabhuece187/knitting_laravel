@@ -12,6 +12,7 @@ use App\Http\Controllers\OutwardController;
 use App\Http\Controllers\StateController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\BankController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,11 +38,16 @@ Route::apiResource('mills', MillController::class);
 Route::apiResource('yarn_types', YarnTypeController::class);
 Route::apiResource('states', StateController::class);
 
+Route::apiResource('banks', BankController::class);
+
 Route::get('state_list', [StateController::class, 'StateSelectList']);
 Route::get('customer_list', [CustomerController::class, 'CustomerSelectList']);
 Route::get('mill_list', [MillController::class, 'MillSelectList']);
 Route::get('yarn_type_list', [YarnTypeController::class, 'YarnTypeSelectList']);
 Route::get('item_list', [ItemController::class, 'ItemSelectList']);
+Route::get('bank_list', [BankController::class, 'BankSelectList']);
+
+Route::put('set_default/{id}', [BankController::class, 'setDefault']);
 
 
 // ----------------- inward ----------------------------
@@ -76,7 +82,7 @@ Route::get('single_customer_data/{id}', [CustomerController::class, 'SingleCusto
 Route::get('single_item_data/{id}', [ItemController::class, 'SingleItemData']);
 Route::get('single_mill_data/{id}', [MillController::class, 'SingleMillData']);
 Route::get('single_yarn_type_data/{id}', [YarnTypeController::class, 'SingleYarnTypeData']);
-
+Route::get('single_bank_data', [BankController::class, 'SingleBankData']);
 
 Route::post('customer-ledger-inout', [ReportController::class, 'CustomerLedgerInOut']);
 Route::post('customer-ledger-itemwise', [ReportController::class, 'CustomerLedgerInOutItemWise']);

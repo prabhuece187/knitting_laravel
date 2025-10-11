@@ -6,8 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use App\Models\Invoice;
 use App\Models\InvoiceDetail;
-use App\Models\InvoiceAdditionalCharge;
+use App\Models\AdditionalCharge;
 use App\Models\Customer;
+use Illuminate\Support\Facades\DB;
 
 class InvoiceController extends Controller
 {
@@ -56,27 +57,49 @@ class InvoiceController extends Controller
     // Store new invoice with details + additional charges
     public function store(Request $request)
     {
-        $input = $request->all();
-        $invoice = Invoice::create($input);
+        DB::beginTransaction();
 
-        // Invoice details
-        $details = $request->invoice_details ?? [];
-        foreach ($details as $detail) {
-            $detail['invoice_id'] = $invoice->id;
-            $detail['user_id'] = $input['user_id'];
-            InvoiceDetail::create($detail);
-        }
+        try {
+            // Merge Auth user_id automatically
+            $input = $request->all();
+            // $input['user_id'] = Auth::id();
 
-        // Additional charges
-        $charges = $request->invoice_additional_charges ?? [];
-        foreach ($charges as $charge) {
-            $charge['invoice_id'] = $invoice->id;
-            $charge['user_id'] = $input['user_id'];
-            InvoiceAdditionalCharge::create($charge);
-        }
+            // Create invoice
+            $invoice = Invoice::create($input);
 
-        return response($invoice);
+            // Invoice details
+            $details = $request->invoice_details ?? [];
+            foreach ($details as $detail) {
+                $detail['invoice_id'] = $invoice->id;
+                $detail['user_id'] = $input['user_id'];
+                InvoiceDetail::create($detail);
+            }
+
+            // Additional charges (new key)
+            $charges = $request->additional_charges ?? [];
+            foreach ($charges as $charge) {
+                $charge['invoice_id'] = $invoice->id;
+                $charge['user_id'] = $input['user_id'];
+                AdditionalCharge::create($charge);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice created successfully',
+                'invoice' => $invoice,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error saving invoice: ' . $e->getMessage(),
+            ], 500);
+        }     
     }
+
 
     // Edit invoice with relations
     public function InvoiceEdit($id)
@@ -86,7 +109,7 @@ class InvoiceController extends Controller
         $invoice['Items'] = InvoiceDetail::with('item')
                             ->where('invoice_id', $id)->get();
 
-        $invoice['AdditionalCharges'] = InvoiceAdditionalCharge::where('invoice_id', $id)->get();
+        $invoice['AdditionalCharges'] = AdditionalCharge::where('invoice_id', $id)->get();
 
         return response($invoice);
     }
@@ -100,7 +123,7 @@ class InvoiceController extends Controller
 
         // Remove old details/charges
         InvoiceDetail::where('invoice_id', $id)->delete();
-        InvoiceAdditionalCharge::where('invoice_id', $id)->delete();
+        AdditionalCharge::where('invoice_id', $id)->delete();
 
         // Re-add details
         $details = $request->invoice_details ?? [];
@@ -115,7 +138,7 @@ class InvoiceController extends Controller
         foreach ($charges as $charge) {
             $charge['invoice_id'] = $invoice->id;
             $charge['user_id'] = $input['user_id'];
-            InvoiceAdditionalCharge::create($charge);
+            AdditionalCharge::create($charge);
         }
 
         return response($invoice);

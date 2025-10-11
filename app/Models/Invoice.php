@@ -59,4 +59,9 @@ class Invoice extends Model
     {
         return $this->hasMany(AdditionalCharge::class);
     }
+
+    public function bank()
+    {
+        return $this->belongsTo(Bank::class);
+    }
 }
