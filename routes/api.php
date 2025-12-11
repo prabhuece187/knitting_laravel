@@ -3,7 +3,6 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\MillController;
 use App\Http\Controllers\YarnTypeController;
@@ -13,7 +12,7 @@ use App\Http\Controllers\StateController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\BankController;
-
+use App\Http\Controllers\PaymentController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -32,7 +31,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // ----------------- masters ----------------------------
 
 Route::apiResource('customers', CustomerController::class);
-Route::apiResource('suppliers', SupplierController::class);
 Route::apiResource('items', ItemController::class);
 Route::apiResource('mills', MillController::class);
 Route::apiResource('yarn_types', YarnTypeController::class);
@@ -73,6 +71,15 @@ Route::post('invoice_add', [InvoiceController::class, 'store']);
 Route::get('invoice_create', [InvoiceController::class, 'InvoiceCreate']);
 Route::get('invoice_edit/{id}', [InvoiceController::class, 'InvoiceEdit']);
 Route::put('invoice_update/{id}', [InvoiceController::class, 'InvoiceUpdate']);
+
+// ----------------- Customer Payment  ----------------------------
+
+Route::get('payments',       [PaymentController::class, 'index']);
+Route::post('payment_add',               [PaymentController::class, 'store']);
+Route::delete('payment_delete/{id}',     [PaymentController::class, 'destroy']);
+
+Route::get('/customer-invoices/{id}', [PaymentController::class, 'getInvoicesByCustomer']);
+
 
 // ----------------- report ----------------------------
 

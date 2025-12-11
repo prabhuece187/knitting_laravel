@@ -37,4 +37,9 @@ class Customer extends Model
     {
         return $this->belongsTo(State::class);
     }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
 }

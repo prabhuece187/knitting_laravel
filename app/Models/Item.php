@@ -19,6 +19,8 @@ class Item extends Model
         'unit',
         'description',
         'price',
+        'barcode',
+        'qrcode',
     ];
 
     public function inward_detail(): HasOne

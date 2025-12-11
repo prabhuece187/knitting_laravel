@@ -111,7 +111,7 @@ class OutwardController extends Controller
         $input = $request->all();
         $data = Outward::create($input);
 
-        $details = $request->details;
+        $details = $request->outward_details;
 
         foreach ($details as $detail)
         {
