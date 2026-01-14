@@ -20,16 +20,16 @@ class Outward extends Model
         'user_id',
         'customer_id',
         'mill_id',
-        'outward_no',
         'inward_id',
-        'outward_invoice_no',
-        'outward_tin_no',
+        'outward_no',
         'outward_date',
+        'outward_invoice_no',
+        'vehicle_no',
         'total_weight',
-        'total_quantity',
-        'outward_vehicle_no',
-        'status',
-        'yarn_send',
+        'process_type',
+        'expected_gsm',
+        'expected_dia',
+        'remarks'
     ];
 
     public function customer(): BelongsTo

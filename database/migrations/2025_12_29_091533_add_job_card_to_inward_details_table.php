@@ -1,0 +1,33 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('inward_details', function (Blueprint $table) {
+            $table->foreignId('job_card_id')
+                  ->nullable()
+                  ->constrained('job_masters')
+                  ->nullOnDelete() // safer than cascade
+                  ->after('inward_id'); // optional, place after inward_id
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('inward_details', function (Blueprint $table) {
+            $table->dropForeign(['job_card_id']); // drop the foreign key first
+            $table->dropColumn('job_card_id');    // then drop the column
+        });
+    }
+};

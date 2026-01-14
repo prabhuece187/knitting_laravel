@@ -9,6 +9,7 @@ use App\Models\Item;
 use App\Models\Inward;
 use App\Models\InwardDetail;
 use App\Models\YarnType;
+use Illuminate\Support\Facades\DB;
 
 class InwardController extends Controller
 {
@@ -64,50 +65,148 @@ class InwardController extends Controller
     public function store(Request $request)
     {
         $input = $request->all();
-        $data = Inward::create($input);
 
-        $details = $request->inward_details;
+        $inward = Inward::create($input);
 
-        foreach ($details as $detail)
-        {
-            $detail['inward_id'] = $data->id;
-            $detail['user_id'] = $input['user_id'];
-            $detail['inward_no'] = $data['inward_no'];
-            $detail['Inward_Detail_Date'] = $data->inward_date;
-
-            InwardDetail::create($detail);
+        foreach ($request->inward_details as $detail) {
+            InwardDetail::create([
+                'inward_id'   => $inward->id,
+                'user_id'     => $input['user_id'],
+                'item_id'     => $detail['item_id'],
+                'yarn_type_id'=> $detail['yarn_type_id'],
+                'shade'       => $detail['shade'] ?? null,
+                'bag_no'      => $detail['bag_no'] ?? null,
+                'gross_weight'=> $detail['gross_weight'] ?? 0,
+                'tare_weight' => $detail['tare_weight'] ?? 0,
+                'net_weight'  => $detail['net_weight'] ?? 0,
+                'uom'         => $detail['uom'] ?? null,
+                'remarks'     => $detail['remarks'] ?? null,
+                'job_card_id' => null, // ✅ KEY LINE
+            ]);
         }
-        return response($data);
+
+        return response()->json($inward);
     }
 
     public function InwardEdit($id)
     {
         $inward = $data = Inward::with('customer')->with('mill')->find($id);
 
-        $inward['Items'] = InwardDetail::with('item')->with('yarn_type')->where('inward_id',$id)->get();
+        $inward['Items'] = InwardDetail::with('item','jobMaster','yarnType')->where('inward_id',$id)->get();
         return response($inward);
     }
 
-    public function InwardUpdate(Request $request,$id)
+    // public function InwardUpdate(Request $request,$id)
+    // {
+    //     $input = $request->all();
+    //     $bill = Inward::find($id);
+
+    //     $bill->update($input);
+    //     $action = Inward::where('id',$id)->first();
+
+    //     InwardDetail::where('inward_id',$id)->delete();
+    //     $details = $request->inward_details;
+    //     foreach ($details as $detail)
+    //     {
+    //         $detail['inward_id'] = $action->id;
+    //         $detail['user_id'] = $input['user_id'];
+    //         $detail['inward_detail_date'] = $action->inward_date;
+    //         InwardDetail::create($detail);
+    //     }
+    //     return response($bill);
+    // }
+
+    public function InwardUpdate(Request $request, $id)
     {
         $input = $request->all();
-        $bill = Inward::find($id);
 
-        $bill->update($input);
-        $action = Inward::where('id',$id)->first();
+        $inward = Inward::findOrFail($id);
+        $inward->update($input);
 
-        InwardDetail::where('inward_id',$id)->delete();
+        $existingIds = $inward->inward_details()->pluck('id')->toArray();
+        $incomingIds = collect($request->inward_details)
+                        ->pluck('id')
+                        ->filter()
+                        ->toArray();
 
-        // $details = $request->Items;
+        // 🗑 Delete only removed rows
+        $deleteIds = array_diff($existingIds, $incomingIds);
+        InwardDetail::whereIn('id', $deleteIds)->delete();
 
-        $details = $request->inward_details;
-        foreach ($details as $detail)
-        {
-            $detail['inward_id'] = $action->id;
-            $detail['user_id'] = $input['user_id'];
-            $detail['inward_detail_date'] = $action->inward_date;
-            InwardDetail::create($detail);
+        foreach ($request->inward_details as $detail) {
+
+            if (!empty($detail['id'])) {
+                // 🔄 UPDATE EXISTING
+                InwardDetail::where('id', $detail['id'])->update([
+                    'item_id'      => $detail['item_id'],
+                    'yarn_type_id' => $detail['yarn_type_id'],
+                    'shade'        => $detail['shade'] ?? null,
+                    'bag_no'       => $detail['bag_no'] ?? null,
+                    'gross_weight' => $detail['gross_weight'] ?? 0,
+                    'tare_weight'  => $detail['tare_weight'] ?? 0,
+                    'net_weight'   => $detail['net_weight'] ?? 0,
+                    'uom'          => $detail['uom'] ?? null,
+                    'remarks'      => $detail['remarks'] ?? null,
+                    
+                ]);
+
+            } else {
+                // ➕ NEW ROW
+                InwardDetail::create([
+                    'inward_id'   => $inward->id,
+                    'user_id'     => $input['user_id'],
+                    'item_id'     => $detail['item_id'],
+                    'yarn_type_id'=> $detail['yarn_type_id'],
+                    'shade'       => $detail['shade'] ?? null,
+                    'bag_no'      => $detail['bag_no'] ?? null,
+                    'gross_weight'=> $detail['gross_weight'] ?? 0,
+                    'tare_weight' => $detail['tare_weight'] ?? 0,
+                    'net_weight'  => $detail['net_weight'] ?? 0,
+                    'uom'         => $detail['uom'] ?? null,
+                    'remarks'     => $detail['remarks'] ?? null,
+                    'job_card_id' => null, // ✅ NEW rows only
+                ]);
+            }
         }
-        return response($bill);
+
+        return response()->json($inward);
+    }
+
+    public function linkJobCard(Request $request, $id)
+    {
+        $detail = InwardDetail::findOrFail($id);
+
+        if ($detail->job_card_id) {
+            return response()->json([
+                'message' => 'Job Card already linked'
+            ], 403);
+        }
+
+        $detail->update([
+            'job_card_id' => $request->job_card_id
+        ]);
+
+        return response()->json($detail);
+    }
+
+    public function InwardSelectList(Request $request)
+    {
+        $search = $request->input('q');
+
+        $query = Inward::with(['customer:id,customer_name', 'mill:id,mill_name'])
+            ->select(
+                'id',
+                'inward_no',
+                'customer_id',
+                'mill_id',
+                'total_weight',
+                'remarks'
+            );
+
+        if ($search) {
+            $query->where('inward_no', 'like', "%{$search}%");
+        }
+
+        return response()->json($query->get());
     }
 }

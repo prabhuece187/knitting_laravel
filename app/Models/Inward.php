@@ -20,13 +20,14 @@ class Inward extends Model
         'customer_id',
         'mill_id',
         'inward_no',
-        'inward_invoice_no',
-        'inward_tin_no',
         'inward_date',
+        'supplier_invoice_no',
+        'vehicle_no',
         'total_weight',
-        'total_quantity',
-        'inward_vehicle_no',
-        'status',
+        'lot_no',
+        'no_of_bags',
+        'remarks',
+        'received_by',
     ];
 
     public function customer(): BelongsTo
@@ -44,9 +45,14 @@ class Inward extends Model
         return $this->belongsTo(Mill::class);
     }
 
-    public function outward(): HasMany
+    public function outwards(): HasMany
     {
-        return $this->belongsTo(Outward::class);
+        return $this->hasMany(Outward::class);
+    }
+
+    public function jobMasters(): HasMany
+    {
+        return $this->hasMany(JobMaster::class);
     }
 
     

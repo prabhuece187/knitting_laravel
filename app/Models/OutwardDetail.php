@@ -16,17 +16,19 @@ class OutwardDetail extends Model
 
     protected $fillable = [
         'user_id',
+        'job_card_id',
         'outward_id',
         'item_id',
         'yarn_type_id',
-        'yarn_dia',
-        'yarn_gsm',
-        'yarn_gauge',
-        'outward_qty',
-        'outward_weight',
-        'deliverd_weight',
-        'outward_detail_date',
-        'yarn_colour'
+        'shade',
+        'lot_no',
+        'bag_no',
+        'gross_weight',
+        'tare_weight',
+        'net_weight',
+        'fabric_weight',
+        'uom',
+        'remarks'
     ];
 
     public function outward(): BelongsTo
@@ -39,7 +41,7 @@ class OutwardDetail extends Model
         return $this->BelongsTo(Item::class);
     }
 
-    public function yarn_type(): BelongsTo
+    public function yarnType(): BelongsTo
     {
         return $this->BelongsTo(YarnType::class);
     }

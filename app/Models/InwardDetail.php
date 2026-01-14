@@ -18,13 +18,17 @@ class InwardDetail extends Model
         'inward_id',
         'item_id',
         'yarn_type_id',
+        'shade',
+        'bag_no',
+        'gross_weight',
+        'tare_weight',
+        'net_weight',
+        'uom',
+        'yarn_gauge',
         'yarn_dia',
         'yarn_gsm',
-        'yarn_gauge',
-        'inward_qty',
-        'inward_weight',
-        'inward_detail_date',
-        'yarn_colour'
+        'remarks',
+        'job_card_id',
     ];
 
     public function inward(): BelongsTo
@@ -37,8 +41,13 @@ class InwardDetail extends Model
         return $this->BelongsTo(Item::class);
     }
 
-    public function yarn_type(): BelongsTo
+    public function yarnType(): BelongsTo
     {
         return $this->BelongsTo(YarnType::class);
+    }
+    
+    public function jobMaster()
+    {
+        return $this->belongsTo(JobMaster::class, 'job_card_id');
     }
 }
