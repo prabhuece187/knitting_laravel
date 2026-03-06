@@ -1,88 +1,87 @@
-<?php   
+<?php
+
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Models\Payment;
 use App\Models\PaymentInvoice;
 use App\Models\Invoice;
-use Auth;
-use DB;
 
-class PaymentController extends Controller
+class PaymentController extends BaseController
 {
+
     public function index(Request $request)
     {
-        $payments = Payment::with([
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('search');
+
+        $query = Payment::with([
             'invoices' => function ($q) {
-                $q->select('invoices.id', 'invoices.customer_id', 'invoices.invoice_number', 'invoices.invoice_total', 'invoices.balance_amount')
-                ->with('customer')   // ← load customer here
+                $q->select(
+                    'invoices.id',
+                    'invoices.customer_id',
+                    'invoices.invoice_number',
+                    'invoices.invoice_total',
+                    'invoices.balance_amount'
+                )
+                ->with('customer')
                 ->withPivot(['invoice_amount', 'paid_before', 'pay_now']);
             }
-        ])->latest()->get();
+        ])->select('payments.*');
 
-        return response()->json($payments);
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+
+                $q->where('payments.id', 'like', "%{$search}%")
+                ->orWhere('payments.payment_date', 'like', "%{$search}%")
+                ->orWhere('payments.payment_type', 'like', "%{$search}%")
+                ->orWhere('payments.amount', 'like', "%{$search}%")
+                ->orWhere('payments.reference_no', 'like', "%{$search}%");
+
+                $q->orWhereHas('invoices.customer', function ($qc) use ($search) {
+                    $qc->where('customer_name', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        $query->orderBy('payments.id', 'desc');
+
+        return response()->json(
+            $this->paginate($query, $page, $limit)
+        );
     }
+
 
     /* -----------------------------------------
         CREATE PAYMENT
     ------------------------------------------*/
-    // public function store(Request $request)
-    // {
-    //     $validated = $request->validate([
-    //         'payment_date' => 'required|date',
-    //         'amount'       => 'required|numeric|min:0.01',
-    //         'payment_type' => 'required',
-    //         'reference_no' => 'nullable|string',
-    //         'note'         => 'nullable|string',
-    //     ]);
-
-    //     return DB::transaction(function () use ($validated) {
-
-    //         $invoice = Invoice::findOrFail($validated['invoice_id']);
-
-    //         $payment = Payment::create([
-    //             'invoice_id'   => $invoice->id,
-    //             'customer_id'  => $invoice->customer_id,
-    //             'user_id'      => Auth::id(),
-    //             'payment_date' => $validated['payment_date'],
-    //             'amount'       => $validated['amount'],
-    //             'payment_type' => $validated['payment_type'],
-    //             'reference_no' => $validated['reference_no'] ?? null,
-    //             'note'         => $validated['note'] ?? null,
-    //         ]);
-
-    //         return response()->json([
-    //             'payment' => $payment,
-    //             'total_paid' => $invoice->fresh()->total_paid,
-    //             'current_balance' => $invoice->fresh()->current_balance,
-    //         ]);
-    //     });
-    // }
 
     public function store(Request $request)
     {
-       $validated = $request->validate([
-                'customer_id'     => 'required|exists:customers,id',
-                'payment_date'    => 'required|date',
-                'payment_type'    => 'required|string',
-                'reference_no'    => 'nullable|string',
-                'note'            => 'nullable|string',
+        $validated = $request->validate([
+            'customer_id'     => 'required|exists:customers,id',
+            'payment_date'    => 'required|date',
+            'payment_type'    => 'required|string',
+            'reference_no'    => 'nullable|string',
+            'note'            => 'nullable|string',
 
-                'payment_details' => 'required|array|min:1',
+            'payment_details' => 'required|array|min:1',
 
-                'payment_details.*.invoice_id' => 'required|exists:invoices,id',
-                'payment_details.*.amount'     => 'required|numeric|min:0.01',
+            'payment_details.*.invoice_id' => 'required|exists:invoices,id',
+            'payment_details.*.amount'     => 'required|numeric|min:0.01',
 
-                'total_amount'    => 'required|numeric|min:0.01',
-            ]);
+            'total_amount'    => 'required|numeric|min:0.01',
+        ]);
 
         return DB::transaction(function () use ($validated) {
 
-            // 1️⃣ Create main payment entry
+            // Create payment
             $payment = Payment::create([
                 'customer_id'  => $validated['customer_id'],
-                'user_id'      => Auth::id(),
+                'user_id'      => Auth::id(), // ✅ Auth user
                 'payment_date' => $validated['payment_date'],
                 'amount'       => $validated['total_amount'],
                 'payment_type' => $validated['payment_type'],
@@ -92,7 +91,6 @@ class PaymentController extends Controller
 
             $responseInvoices = [];
 
-            // 2️⃣ Loop through each invoice in payment_details
             foreach ($validated['payment_details'] as $item) {
 
                 $invoice = Invoice::findOrFail($item['invoice_id']);
@@ -100,25 +98,22 @@ class PaymentController extends Controller
                 $previousPaid = $invoice->amount_received;
                 $payNow       = $item['amount'];
 
-                // 3️⃣ Create payment_invoice record
                 PaymentInvoice::create([
-                    'payment_id'   => $payment->id,
-                    'invoice_id'   => $invoice->id,
+                    'payment_id'     => $payment->id,
+                    'invoice_id'     => $invoice->id,
                     'invoice_amount' => $invoice->invoice_total,
-                    'paid_before'  => $previousPaid,
-                    'pay_now'      => $payNow,
+                    'paid_before'    => $previousPaid,
+                    'pay_now'        => $payNow,
                 ]);
 
-                // Prepare response
                 $responseInvoices[] = [
-                    'invoice_id'        => $invoice->id,
-                    'invoice_amount'    => $invoice->invoice_total,
-                    'total_paid'        => $invoice->amount_received,
-                    'current_balance'   => $invoice->invoice_total - $invoice->amount_received,
+                    'invoice_id'      => $invoice->id,
+                    'invoice_amount'  => $invoice->invoice_total,
+                    'total_paid'      => $invoice->amount_received,
+                    'current_balance' => $invoice->invoice_total - $invoice->amount_received,
                 ];
             }
 
-            // 5️⃣ Return final updated data
             return response()->json([
                 'payment'  => $payment,
                 'invoices' => $responseInvoices
@@ -127,10 +122,10 @@ class PaymentController extends Controller
     }
 
 
-
     /* -----------------------------------------
         DELETE PAYMENT
     ------------------------------------------*/
+
     public function destroy($id)
     {
         $payment = Payment::find($id);
@@ -139,37 +134,19 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Payment not found'], 404);
         }
 
-        // Delete related pivot records
-        $payment->invoices()->detach(); // removes entries from payment_invoices
+        $payment->invoices()->detach();
 
-        // Delete the payment
         $payment->delete();
 
-        return response()->json(['message' => 'Payment deleted successfully']);
+        return response()->json([
+            'message' => 'Payment deleted successfully'
+        ]);
     }
 
-    // public function getInvoicesByCustomer($customerId)
-    // {
-    //     $invoices = Invoice::where('customer_id', $customerId)
-    //         ->with(['paymentsSettlements'])
-    //         ->orderBy('invoice_date', 'asc')
-    //         ->get()
-    //         ->map(function ($invoice) {
-    //             return [
-    //                 'id' => $invoice->id,
-    //                 'invoice_number' => $invoice->invoice_number,
-    //                 'invoice_date' => $invoice->invoice_date,
-    //                 'invoice_total' => $invoice->invoice_total,
-    //                 'total_paid' => $invoice->total_paid,
-    //                 'pending_amount' => $invoice->current_balance,
-    //             ];
-    //         });
 
-    //     return response()->json([
-    //         'customer_id' => $customerId,
-    //         'invoices' => $invoices
-    //     ]);
-    // }
+    /* -----------------------------------------
+        GET CUSTOMER INVOICES
+    ------------------------------------------*/
 
     public function getInvoicesByCustomer($customerId)
     {
@@ -178,23 +155,23 @@ class PaymentController extends Controller
             ->orderBy('invoice_date', 'asc')
             ->get()
             ->filter(function ($invoice) {
-                return $invoice->current_balance > 0; // ONLY pending invoices
+                return $invoice->current_balance > 0;
             })
-            ->values() // reset index
+            ->values()
             ->map(function ($invoice) {
                 return [
-                    'id' => $invoice->id,
+                    'id'             => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
-                    'invoice_date' => $invoice->invoice_date,
-                    'invoice_total' => $invoice->invoice_total,
-                    'total_paid' => $invoice->total_paid,
+                    'invoice_date'   => $invoice->invoice_date,
+                    'invoice_total'  => $invoice->invoice_total,
+                    'total_paid'     => $invoice->total_paid,
                     'pending_amount' => $invoice->current_balance,
                 ];
             });
 
         return response()->json([
             'customer_id' => $customerId,
-            'invoices' => $invoices
+            'invoices'    => $invoices
         ]);
     }
 

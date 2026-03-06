@@ -4,95 +4,78 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Mill;
+use Illuminate\Support\Facades\Auth;
 use DB;
 
-class MillController extends Controller
+class MillController extends BaseController
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request)
     {
-        $mill = $request->all();
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('searchInput');
 
-        $count = $mill['limit'];
-        $page  = $mill['curpage'];
+        $query = DB::table('mills')
+            ->where('user_id', Auth::id())
+            ->select(
+                'id',
+                'user_id',
+                'mill_name',
+                'mobile_number',
+                'address',
+                'description',
+                'created_at',
+                'updated_at'
+            );
 
-        $sorting = "desc";
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('mill_name', 'like', "%{$search}%")
+                  ->orWhere('mobile_number', 'like', "%{$search}%")
+                  ->orWhere('address', 'like', "%{$search}%");
+            });
+        }
 
-        $data = DB::table('mills');
+        $query->orderBy('id','desc');
 
-        $total = $data->count();
-
-        $data = $data->take($count)
-                ->skip($count*($page-1))
-                ->orderby('mills.id','desc')
-                ->get();
-
-        return response(['data' => $data , 'total' => $total]);
+        return response()->json(
+            $this->paginate($query,$page,$limit)
+        );
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        $mill = $request->all();
-        $mill = Mill::create($mill);
-
-		return response($mill);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        $mill = $request->all();
-        $mill = Mill::create($mill);
-
-        return response($mill);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-        $mill = Mill::find($id);
-
-        return response($mill);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        $mill = Mill::find($id);
-
-        return response($mill);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        $mill = Mill::find($id);
         $input = $request->all();
-        $mill->update($input);
+        $input['user_id'] = Auth::id();
+
+        $mill = Mill::create($input);
 
         return response($mill);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function show($id)
     {
-        $mill = Mill::find($id);
+        return Mill::where('user_id',Auth::id())->findOrFail($id);
+    }
+
+    public function edit($id)
+    {
+        return Mill::where('user_id',Auth::id())->findOrFail($id);
+    }
+
+    public function update(Request $request,$id)
+    {
+        $mill = Mill::where('user_id',Auth::id())->findOrFail($id);
+
+        $mill->update($request->all());
+
+        return response($mill);
+    }
+
+    public function destroy($id)
+    {
+        $mill = Mill::where('user_id',Auth::id())->findOrFail($id);
+
         $mill->delete();
 
         return response($mill);
@@ -101,11 +84,13 @@ class MillController extends Controller
     public function MillSelectList(Request $request)
     {
         $search = $request->input('q');
-        
-        $query = DB::table('mills')->select('id', 'mill_name','mobile_number');
+
+        $query = DB::table('mills')
+            ->where('user_id',Auth::id())
+            ->select('id','mill_name','mobile_number');
 
         if ($search) {
-            $query->where('mill_name', 'like', "%$search%");
+            $query->where('mill_name','like',"%$search%");
         }
 
         return response()->json($query->get());
@@ -113,7 +98,10 @@ class MillController extends Controller
 
     public function SingleMillData(Request $request,$id)
     {
-        $query = DB::table('mills')->select('id', 'mill_name')->where('mills.id',$id);
+        $query = DB::table('mills')
+            ->where('user_id',Auth::id())
+            ->where('id',$id)
+            ->select('id','mill_name');
 
         return response()->json($query->first());
     }

@@ -3,116 +3,144 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Item;
 use DB;
 
-class ItemController extends Controller
+class ItemController extends BaseController
 {
-    /**
-     * Display a listing of the resource.
-     */
+
     public function index(Request $request)
     {
-        $item = $request->all();
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('searchInput');
 
-        $count = $item['limit'];
-        $page  = $item['curpage'];
+        $query = DB::table('items')
+            ->where('items.user_id', Auth::id())
+            ->select(
+                'id',
+                'user_id',
+                'item_name',
+                'hsn_code',
+                'unit',
+                'description',
+                'price',
+                'barcode',
+                'qrcode',
+                'created_at',
+                'updated_at'
+            );
 
-        $sorting = "desc";
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('item_name', 'like', "%{$search}%")
+                    ->orWhere('hsn_code', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
+            });
+        }
 
-        $data = DB::table('items');
+        $query->orderBy('id', 'desc');
 
-        $total = $data->count();
-
-        $data = $data->take($count)
-                ->skip($count*($page-1))
-                ->orderby('items.id','desc')
-                ->get();
-
-        return response(['data' => $data , 'total' => $total]);
+        return response()->json(
+            $this->paginate($query, $page, $limit)
+        );
     }
 
     /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        $item = $request->all();
-        $item = Item::create($item);
-
-		return response($item);
-    }
-
-    /**
-     * Store a newly created resource in storage.
+     * Store Item
      */
     public function store(Request $request)
     {
-        $item = $request->all();
-        $item = Item::create($item);
+        $input = $request->all();
 
-        return response($item);
+        // attach logged user id
+        $input['user_id'] = Auth::id();
+
+        $item = Item::create($input);
+
+        return response()->json($item);
     }
 
     /**
-     * Display the specified resource.
+     * Show Item
      */
     public function show(string $id)
     {
-        $item = Item::find($id);
+        $item = Item::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
 
-        return response($item);
+        return response()->json($item);
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Edit Item
      */
     public function edit(string $id)
     {
-        $item = Item::find($id);
+        $item = Item::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
 
-        return response($item);
+        return response()->json($item);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update Item
      */
     public function update(Request $request, string $id)
     {
-        $item = Item::find($id);
-        $input = $request->all();
-        $item->update($input);
+        $item = Item::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
 
-        return response($item);
+        $item->update($request->all());
+
+        return response()->json($item);
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Delete Item
      */
     public function destroy(string $id)
     {
-        $item = Item::find($id);
+        $item = Item::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
+
         $item->delete();
 
-        return response($item);
+        return response()->json($item);
     }
 
+    /**
+     * Dropdown list
+     */
     public function ItemSelectList(Request $request)
     {
         $search = $request->input('q');
-        
-        $query = DB::table('items')->select('id', 'item_name','hsn_code');
+
+        $query = DB::table('items')
+            ->where('user_id', Auth::id())
+            ->select('id', 'item_name', 'hsn_code');
 
         if ($search) {
-            $query->where('item', 'like', "%$search%");
+            $query->where('item_name', 'like', "%$search%");
         }
 
         return response()->json($query->get());
     }
 
-    public function SingleItemData(Request $request,$id)
+    /**
+     * Single Item
+     */
+    public function SingleItemData(Request $request, $id)
     {
-        $query = DB::table('items')->select('id', 'item_name','hsn_code')->where('items.id',$id);
+        $query = DB::table('items')
+            ->where('user_id', Auth::id())
+            ->where('id', $id)
+            ->select('id', 'item_name', 'hsn_code');
 
         return response()->json($query->first());
     }

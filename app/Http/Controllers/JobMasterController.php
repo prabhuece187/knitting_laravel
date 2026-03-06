@@ -3,33 +3,69 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobMaster;
-use App\Models\KnittingJobLedger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class JobMasterController extends Controller
+class JobMasterController extends BaseController
 {
-    // List
-    public function index()
+    public function index(Request $request)
     {
-        return JobMaster::with(['inward', 'customer', 'mill'])->orderBy('id', 'desc')->get();
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('search');
+
+        $query = JobMaster::with(['inward', 'customer', 'mill'])
+            ->where('job_masters.user_id', Auth::id())
+            ->select('job_masters.*');
+
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+
+                $q->where('job_masters.job_card_no', 'like', "%{$search}%")
+                ->orWhere('job_masters.status', 'like', "%{$search}%")
+                ->orWhere('job_masters.id', 'like', "%{$search}%");
+
+                $q->orWhereHas('inward', function ($qi) use ($search) {
+                    $qi->where('inward_no', 'like', "%{$search}%");
+                });
+
+                $q->orWhereHas('customer', function ($qc) use ($search) {
+                    $qc->where('customer_name', 'like', "%{$search}%");
+                });
+
+                $q->orWhereHas('mill', function ($qm) use ($search) {
+                    $qm->where('mill_name', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        $query->orderBy('job_masters.id', 'desc');
+
+        return response()->json(
+            $this->paginate($query, $page, $limit)
+        );
     }
 
     // Show single
     public function show($id)
     {
-        return JobMaster::with(['inward', 'customer', 'mill'])->findOrFail($id);
+        return JobMaster::with(['inward','customer','mill'])
+            ->where('user_id', Auth::id())
+            ->findOrFail($id);
     }
 
-    // Generate next job number: JOB/2025/0001 style
+    // Generate next job number
     public function nextJobNo()
     {
         $prefix = 'JOB/' . date('Y') . '/';
-        $last = JobMaster::where('job_card_no', 'like', $prefix . '%')
+
+        $last = JobMaster::where('user_id', Auth::id())
+            ->where('job_card_no', 'like', $prefix . '%')
             ->orderBy('id', 'desc')
             ->value('job_card_no');
 
-        if (! $last) {
+        if (!$last) {
             $next = $prefix . str_pad(1, 4, '0', STR_PAD_LEFT);
         } else {
             $lastNum = (int)substr($last, strrpos($last, '/') + 1);
@@ -53,30 +89,32 @@ class JobMasterController extends Controller
             'approx_job_weight' => 'nullable|numeric',
             'expected_delivery_date' => 'nullable|date',
             'remarks' => 'nullable|string',
-            'user_id' => 'required|exists:users,id',    
         ]);
 
         DB::beginTransaction();
 
         try {
+
             $job = JobMaster::create([
                 ...$data,
-                'status' => 'open',
+                'user_id' => Auth::id(),
+                'status' => 'open'
             ]);
 
             DB::commit();
 
             return response()->json([
                 'message' => 'Job created successfully',
-                'data' => $job,
+                'data' => $job
             ], 201);
 
         } catch (\Exception $e) {
+
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Error creating job',
-                'error' => $e->getMessage(),
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -84,7 +122,8 @@ class JobMasterController extends Controller
     // Update
     public function update(Request $request, $id)
     {
-        $job = JobMaster::findOrFail($id);
+        $job = JobMaster::where('user_id', Auth::id())
+            ->findOrFail($id);
 
         $data = $request->validate([
             'job_date' => 'required|date',
@@ -97,56 +136,61 @@ class JobMasterController extends Controller
             'expected_delivery_date' => 'nullable|date',
             'remarks' => 'nullable|string',
 
-            'status' => 'required|in:open,completed,cancelled',
-            'user_id' => 'required|exists:users,id', 
+            'status' => 'required|in:open,completed,cancelled'
         ]);
 
         DB::beginTransaction();
 
         try {
+
             $job->update($data);
 
             DB::commit();
 
             return response()->json([
                 'message' => 'Job updated successfully',
-                'data' => $job,
+                'data' => $job
             ]);
 
         } catch (\Exception $e) {
+
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Error updating job',
-                'error' => $e->getMessage(),
+                'error' => $e->getMessage()
             ], 500);
         }
     }
 
-
     // Delete
     public function destroy($id)
     {
-        $job = JobMaster::findOrFail($id);
+        $job = JobMaster::where('user_id', Auth::id())
+            ->findOrFail($id);
+
         $job->delete();
 
-        return response()->json(['message' => 'Deleted']);
+        return response()->json([
+            'message' => 'Deleted'
+        ]);
     }
 
-       /**
-     * Searchable list for dropdowns.
+    /**
+     * Dropdown list
      */
     public function JobSelectList(Request $request)
     {
         $search = $request->input('q');
-        
-        $query = DB::table('job_masters')->select('id', 'job_card_no');
+
+        $query = DB::table('job_masters')
+            ->where('user_id', Auth::id())
+            ->select('id','job_card_no');
 
         if ($search) {
-            $query->where('machine_name', 'like', "%$search%");
+            $query->where('job_card_no','like',"%$search%");
         }
 
         return response()->json($query->get());
     }
-
 }

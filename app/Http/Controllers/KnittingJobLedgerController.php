@@ -10,6 +10,7 @@ class KnittingJobLedgerController extends Controller
     public function index($jobId)
     {
         $entries = KnittingJobLedger::where('job_id', $jobId)
+            ->where('user_id', auth()->id())
             ->orderBy('created_at')
             ->get();
 
@@ -25,7 +26,14 @@ class KnittingJobLedgerController extends Controller
 
     public function addEntry(Request $request)
     {
-        $entry = KnittingJobLedger::create($request->all());
-        return response()->json(['message' => 'Entry added', 'data' => $entry]);
+        $data = $request->all();
+        $data['user_id'] = auth()->id();
+
+        $entry = KnittingJobLedger::create($data);
+
+        return response()->json([
+            'message' => 'Entry added',
+            'data' => $entry
+        ]);
     }
 }

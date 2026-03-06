@@ -6,31 +6,41 @@ use Illuminate\Http\Request;
 use App\Models\State;
 use DB;
 
-class StateController extends Controller
+class StateController extends BaseController
 {
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $state = $request->all();
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('searchInput');
 
-        $count = $state['limit'];
-        $page  = $state['curpage'];
+        $query = DB::table('states')
+            ->select(
+                'id',
+                'state_name',
+                'state_code',
+                'created_at',
+                'updated_at'
+            );
 
-        $sorting = "desc";
+        // 🔍 Search
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('state_name', 'like', "%{$search}%")
+                ->orWhere('state_code', 'like', "%{$search}%");
+            });
+        }
 
-        $data = DB::table('states');
+        $query->orderBy('id', 'desc');
 
-        $total = $data->count();
-
-        $data = $data->take($count)
-                ->skip($count*($page-1))
-                ->orderby('states.id','desc')
-                ->get();
-
-        return response(['data' => $data , 'total' => $total]);
+        return response()->json(
+            $this->paginate($query, $page, $limit)
+        );
     }
+
 
     /**
      * Show the form for creating a new resource.

@@ -3,101 +3,54 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
-use App\Models\User;
 use DB;
 
-class CustomerController extends Controller
+class CustomerController extends BaseController
 {
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $customer = $request->all();
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('search');
 
-        if($customer['searchInput'] === "")
-        {
-            $count = $customer['limit'];
-            $page  = $customer['curpage'];
+        $query = DB::table('customers')
+            ->leftJoin('states', 'customers.state_id', '=', 'states.id')
+            ->where('customers.user_id', Auth::id())
+            ->select(
+                'customers.id',
+                'customers.user_id',
+                'customers.customer_name',
+                'customers.customer_mobile',
+                'customers.customer_email',
+                'customers.customer_address',
+                'customers.customer_gst_no',
+                'customers.state_id as customer_state_id',
+                'customers.created_at',
+                'customers.updated_at',
+                'states.state_name'
+            );
 
-            $sorting = "desc";
-
-  	    $data = DB::table('customers')
-	            ->leftJoin('states', 'customers.state_id', '=', 'states.id')
-                ->select(
-                        'customers.id',
-                        'customers.user_id',
-                        'customers.customer_name',
-                        'customers.customer_mobile',
-                        'customers.customer_email',
-                        'customers.customer_address',
-                        'customers.customer_gst_no',
-                        'customers.state_id as customer_state_id',
-                        'customers.created_at',
-                        'customers.updated_at',
-                        'states.state_name'
-                );
-            $total = $data->count();
-
-            $data = $data->take($count)
-                    ->skip($count*($page-1))
-                    ->orderby('customers.id','desc')
-                    ->get();
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('customers.customer_name', 'like', "%{$search}%")
+                    ->orWhere('customers.customer_mobile', 'like', "%{$search}%")
+                    ->orWhere('customers.customer_email', 'like', "%{$search}%")
+                    ->orWhere('customers.customer_gst_no', 'like', "%{$search}%")
+                    ->orWhere('customers.customer_address', 'like', "%{$search}%")
+                    ->orWhere('states.state_name', 'like', "%{$search}%");
+            });
         }
-        else
-        {
-            $count = $customer['limit'];
-		    $page  = $customer['curpage'];
 
-		    $sorting = "desc";
+        $query->orderBy('customers.id', 'desc');
 
-        	$datas = DB::table('customers')
-                     ->leftJoin('states', 'customers.state_id', '=', 'states.id')
-                     ->select(
-                            'customers.id',
-                            'customers.user_id',
-                            'customers.customer_name',
-                            'customers.customer_mobile',
-                            'customers.customer_email',
-                            'customers.customer_address',
-                            'customers.customer_gst_no',
-                            'customers.state_id as customer_state_id',
-                            'customers.created_at',
-                            'customers.updated_at',
-                            'states.state_name'
-                    )
-                    ->where('customers.id','LIKE', '%' . $customer['searchInput'] . '%')
-			        ->orWhere('customers.customer_gst_no','LIKE', '%' . $customer['searchInput'] . '%')
-			        ->orWhere('customers.customer_mobile','LIKE', '%' . $customer['searchInput'] . '%')
-			        ->orWhere('customers.customer_email','LIKE', '%' . $customer['searchInput'] . '%')
-			        ->orWhere('customers.customer_address','LIKE', '%' . $customer['searchInput'] . '%')
- 				    ->orWhere('states.state_name', 'LIKE', '%' . $customer['searchInput'] . '%')
-              		->orWhere('customers.state_id', 'LIKE', '%' . $customer['searchInput'] . '%');
-
-
-        	$total = $datas->count();
-
-        	$data = $datas->take($count)
-                	->skip($count*($page-1))
-			        ->orderby('customers.id','desc')
-                	->get();
-
-	    }
-        return response(['data' => $data , 'total' => $total]);
-    }
-
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        $customer = $request->all();
-        $customer = Customer::create($customer);
-
-		return response($customer);
+        return response()->json(
+            $this->paginate($query, $page, $limit)
+        );
     }
 
     /**
@@ -105,11 +58,14 @@ class CustomerController extends Controller
      */
     public function store(Request $request)
     {
-        $customer = $request->all();
+        $input = $request->all();
 
-        $customer = Customer::create($customer);
+        // automatically attach logged user id
+        $input['user_id'] = Auth::id();
 
-        return response($customer);
+        $customer = Customer::create($input);
+
+        return response()->json($customer);
     }
 
     /**
@@ -117,10 +73,11 @@ class CustomerController extends Controller
      */
     public function show(string $id)
     {
-        //
-        $customer = Customer::find($id);
+        $customer = Customer::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
 
-        return response($customer);
+        return response()->json($customer);
     }
 
     /**
@@ -128,9 +85,12 @@ class CustomerController extends Controller
      */
     public function edit(string $id)
     {
-        $customer = Customer::with('state')->find($id);
+        $customer = Customer::with('state')
+            ->where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
 
-        return response($customer);
+        return response()->json($customer);
     }
 
     /**
@@ -138,11 +98,13 @@ class CustomerController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $customer = Customer::find($id);
-        $input = $request->all();
-        $customer->update($input);
+        $customer = Customer::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
 
-        return response($customer);
+        $customer->update($request->all());
+
+        return response()->json($customer);
     }
 
     /**
@@ -150,17 +112,25 @@ class CustomerController extends Controller
      */
     public function destroy(string $id)
     {
-        $customer = Customer::find($id);
+        $customer = Customer::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->firstOrFail();
+
         $customer->delete();
 
-        return response($customer);
+        return response()->json($customer);
     }
 
+    /**
+     * Dropdown customer list
+     */
     public function CustomerSelectList(Request $request)
     {
         $search = $request->input('q');
-        
-        $query = DB::table('customers')->select('id', 'customer_name','customer_mobile');
+
+        $query = DB::table('customers')
+            ->where('user_id', Auth::id())
+            ->select('id', 'customer_name', 'customer_mobile');
 
         if ($search) {
             $query->where('customer_name', 'like', "%$search%");
@@ -169,12 +139,16 @@ class CustomerController extends Controller
         return response()->json($query->get());
     }
 
-    public function SingleCustomerData(Request $request,$id)
-    { 
-        $query = DB::table('customers')->select('id', 'customer_name','customer_mobile')->where('customers.id',$id);
+    /**
+     * Single customer dropdown data
+     */
+    public function SingleCustomerData(Request $request, $id)
+    {
+        $query = DB::table('customers')
+            ->where('user_id', Auth::id())
+            ->where('id', $id)
+            ->select('id', 'customer_name', 'customer_mobile');
 
         return response()->json($query->first());
     }
-
-    
 }

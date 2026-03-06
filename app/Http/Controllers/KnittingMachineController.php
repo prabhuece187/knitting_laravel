@@ -4,121 +4,111 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\KnittingMachine;
+use Illuminate\Support\Facades\Auth;
 use DB;
 
-class KnittingMachineController extends Controller
+class KnittingMachineController extends BaseController
 {
-    /**
-     * Display a listing of the resource.
-     */
+
     public function index(Request $request)
     {
-        $input = $request->all();
+        $page   = (int)$request->get('page',1);
+        $limit  = (int)$request->get('limit',10);
+        $search = $request->get('searchInput');
 
-        $count = $input['limit'] ?? 10;
-        $page  = $input['curpage'] ?? 1;
+        $query = DB::table('knitting_machines')
+            ->where('user_id',Auth::id())
+            ->select(
+                'id',
+                'user_id',
+                'machine_no',
+                'brand',
+                'dia',
+                'gauge',
+                'status',
+                'created_at',
+                'updated_at'
+            );
 
-        $data = DB::table('knitting_machines');
+        if(!empty($search)){
+            $query->where(function ($q) use ($search){
+                $q->where('machine_no','like',"%{$search}%")
+                  ->orWhere('brand','like',"%{$search}%")
+                  ->orWhere('dia','like',"%{$search}%")
+                  ->orWhere('gauge','like',"%{$search}%")
+                  ->orWhere('status','like',"%{$search}%");
+            });
+        }
 
-        $total = $data->count();
+        $query->orderBy('id','desc');
 
-        $data = $data->take($count)
-                    ->skip($count * ($page - 1))
-                    ->orderBy('knitting_machines.id', 'desc')
-                    ->get();
-
-        return response(['data' => $data, 'total' => $total]);
+        return response()->json(
+            $this->paginate($query,$page,$limit)
+        );
     }
 
-    /**
-     * Store a newly created resource.
-     */
     public function store(Request $request)
     {
         $input = $request->all();
+        $input['user_id'] = Auth::id();
 
         $machine = KnittingMachine::create($input);
 
         return response()->json($machine);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show($id)
     {
-        $machine = KnittingMachine::find($id);
-
-        return response($machine);
+        return KnittingMachine::where('user_id',Auth::id())->findOrFail($id);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function update(Request $request,$id)
     {
-        $machine = KnittingMachine::find($id);
+        $machine = KnittingMachine::where('user_id',Auth::id())->findOrFail($id);
 
-        return response($machine);
-    }
-
-    /**
-     * Update the specified resource.
-     */
-    public function update(Request $request, string $id)
-    {
-        $machine = KnittingMachine::findOrFail($id);
-        $input   = $request->all();
-
-        $machine->update($input);
+        $machine->update($request->all());
 
         return response()->json($machine);
     }
 
-    /**
-     * Remove the specified resource.
-     */
-    public function destroy(string $id)
+    public function destroy($id)
     {
-        $machine = KnittingMachine::find($id);
+        $machine = KnittingMachine::where('user_id',Auth::id())->findOrFail($id);
+
         $machine->delete();
 
         return response($machine);
     }
 
-    /**
-     * Searchable list for dropdowns (Machine No).
-     */
     public function MachineSelectList(Request $request)
     {
         $search = $request->input('q');
 
         $query = DB::table('knitting_machines')
-                    ->select(
-                        'id',
-                        'machine_no',
-                        'machine_name',
-                        'dia',
-                        'gauge',
-                        'status'
-                    )
-                    ->where('status', 'active');
+            ->where('user_id',Auth::id())
+            ->where('status','active')
+            ->select(
+                'id',
+                'machine_no',
+                'machine_name',
+                'dia',
+                'gauge',
+                'status'
+            );
 
-        if ($search) {
-            $query->where('machine_no', 'like', "%$search%");
+        if($search){
+            $query->where('machine_no','like',"%$search%");
         }
 
         return response()->json($query->get());
     }
 
-    /**
-     * Get single machine data by ID.
-     */
-    public function SingleMachineData(Request $request, $id)
+    public function SingleMachineData(Request $request,$id)
     {
         $machine = DB::table('knitting_machines')
-                    ->where('id', $id)
-                    ->first();
+            ->where('user_id',Auth::id())
+            ->where('id',$id)
+            ->first();
 
         return response()->json($machine);
     }

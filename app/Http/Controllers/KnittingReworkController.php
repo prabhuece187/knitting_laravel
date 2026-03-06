@@ -1,41 +1,55 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\KnittingRework;
 use App\Models\KnittingProductionReturn;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
-class KnittingReworkController extends Controller
+class KnittingReworkController extends BaseController
 {
-    // LIST
+
     public function index(Request $request)
     {
-        $input = $request->all();
-        $count = $input['limit'] ?? 10;
-        $page  = $input['curpage'] ?? 1;
-        $search = $input['searchInput'] ?? '';
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('search');
 
-        $query = KnittingRework::with(['productionReturn','jobMaster']);
+        $query = KnittingRework::with(['productionReturn','jobMaster'])
+            ->select('knitting_reworks.*');
 
-        if(!empty($search)){
-            $query->where('rework_no','LIKE',"%$search%");
+        if (!empty($search)) {
+
+            $query->where(function ($q) use ($search) {
+
+                $q->where('knitting_reworks.rework_no', 'like', "%{$search}%")
+                ->orWhere('knitting_reworks.id', 'like', "%{$search}%");
+
+                $q->orWhereHas('productionReturn', function ($qp) use ($search) {
+                    $qp->where('return_no', 'like', "%{$search}%");
+                });
+
+                $q->orWhereHas('jobMaster', function ($qj) use ($search) {
+                    $qj->where('job_card_no', 'like', "%{$search}%");
+                });
+
+            });
+
         }
 
-        return response([
-            'data'=>$query->orderBy('id','desc')
-                          ->take($count)
-                          ->skip($count*($page-1))
-                          ->get(),
-            'total'=>$query->count()
-        ]);
+        $query->orderBy('knitting_reworks.id', 'desc');
+
+        return response()->json(
+            $this->paginate($query, $page, $limit)
+        );
     }
 
-    // CREATE REWORK NO
     public function reworkCreate()
     {
         $prefix = 'REW/' . date('Y') . '/';
-        $last = \App\Models\KnittingRework::where('rework_no', 'like', $prefix . '%')
+        $last = KnittingRework::where('rework_no', 'like', $prefix . '%')
             ->orderBy('id', 'desc')
             ->value('rework_no');
 
@@ -49,12 +63,11 @@ class KnittingReworkController extends Controller
         return response()->json(['next_rework_no' => $next]);
     }
 
-    // STORE
     public function store(Request $request)
     {
+
         $returnId = $request->production_return_id;
 
-        // 🔒 VALIDATION: Rework ≤ Returned
         $returnedQty = KnittingProductionReturn::where('id',$returnId)
                             ->value('return_weight');
 
@@ -66,21 +79,22 @@ class KnittingReworkController extends Controller
         }
 
         DB::transaction(function() use ($request,&$data){
+
             $data = KnittingRework::create([
                 'rework_no'            => $this->reworkCreate()->getData()->next_rework_no,
                 'rework_date'          => $request->rework_date,
                 'production_return_id' => $request->production_return_id,
                 'job_card_id'          => $request->job_card_id ?? null,
-                'rework_weight'           => $request->rework_weight,
+                'rework_weight'        => $request->rework_weight,
                 'remarks'              => $request->remarks ?? null,
-                'user_id'              => $request->user_id ?? null,
+                'user_id'              => Auth::id(), // ✅ AUTH USER
             ]);
+
         });
 
         return response($data);
     }
 
-    // EDIT
     public function edit($id)
     {
         return response(
@@ -88,9 +102,9 @@ class KnittingReworkController extends Controller
         );
     }
 
-    // UPDATE
     public function update(Request $request,$id)
     {
+
         $returnId = $request->production_return_id;
 
         $returnedQty = KnittingProductionReturn::where('id',$returnId)
@@ -105,28 +119,13 @@ class KnittingReworkController extends Controller
         }
 
         DB::transaction(function() use ($request,$id,&$rework){
+
             $rework = KnittingRework::findOrFail($id);
             $rework->update($request->all());
+
         });
 
         return response($rework);
     }
 
-    // SELECT LIST
-    public function selectList(Request $request)
-    {
-        $search = $request->input('q');
-
-        $query = KnittingRework::with([
-                'productionReturn:id,return_no',
-                'jobCard:id,job_card_no'
-            ])
-            ->select('id','rework_no','production_return_id','job_card_id','rework_weight');
-
-        if($search){
-            $query->where('rework_no','LIKE',"%$search%");
-        }
-
-        return response()->json($query->get());
-    }
 }

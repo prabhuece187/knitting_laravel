@@ -9,38 +9,47 @@ use App\Models\JobMaster;
 use App\Models\KnittingMachine;
 use Illuminate\Support\Facades\DB;
 
-class KnittingProductionController extends Controller
+class KnittingProductionController extends BaseController
 {
-    // LIST / PAGINATION
     public function index(Request $request)
     {
-        $input = $request->all();
-        $count = $input['limit'] ?? 10;
-        $page  = $input['curpage'] ?? 1;
-        $search = $input['searchInput'] ?? '';
-        $sorting = "desc";
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('search');
 
-        $query = KnittingProduction::with(['jobMaster', 'machine', 'details']);
+        $query = KnittingProduction::with([
+                'jobMaster',
+                'machine',
+                'details'
+            ])
+            ->select('knitting_productions.*')
+            ->where('user_id', auth()->id());
 
         if (!empty($search)) {
-            $query = $query->whereHas('jobMaster', function ($q) use ($search) {
-                $q->where('job_card_no', 'LIKE', "%$search%");
-            })->orWhereHas('machine', function ($q) use ($search) {
-                $q->where('machine_name', 'LIKE', "%$search%");
-            })->orWhere('production_no', 'LIKE', "%$search%");
+            $query->where(function ($q) use ($search) {
+
+                $q->where('knitting_productions.production_no', 'like', "%{$search}%")
+                ->orWhere('knitting_productions.shift', 'like', "%{$search}%")
+                ->orWhere('knitting_productions.operator_name', 'like', "%{$search}%")
+                ->orWhere('knitting_productions.id', 'like', "%{$search}%");
+
+                $q->orWhereHas('jobMaster', function ($qj) use ($search) {
+                    $qj->where('job_card_no', 'like', "%{$search}%");
+                });
+
+                $q->orWhereHas('machine', function ($qm) use ($search) {
+                    $qm->where('machine_name', 'like', "%{$search}%");
+                });
+            });
         }
 
-        $total = $query->count();
+        $query->orderBy('knitting_productions.id', 'desc');
 
-        $data = $query->orderBy('id', $sorting)
-                    ->take($count)
-                    ->skip($count * ($page - 1))
-                    ->get();
-
-        return response(['data' => $data, 'total' => $total]);
+        return response()->json(
+            $this->paginate($query, $page, $limit)
+        );
     }
 
-    // CREATE – GET NEXT PRODUCTION NUMBER
     public function productionCreate()
     {
         $prefix = 'PROD/' . date('Y') . '/';
@@ -61,13 +70,13 @@ class KnittingProductionController extends Controller
         ]);
     }
 
-    // STORE HEADER + DETAILS
     public function store(Request $request)
     {
         $input = $request->all();
 
         DB::transaction(function() use ($input, &$data) {
-             $productionNo = $this->productionCreate()->getData()->pro_no; // generate production_no
+
+            $productionNo = $this->productionCreate()->getData()->pro_no;
 
             $data = KnittingProduction::create([
                 'production_no'   => $productionNo,
@@ -77,11 +86,12 @@ class KnittingProductionController extends Controller
                 'shift'           => $input['shift'] ?? null,
                 'operator_name'   => $input['operator_name'] ?? null,
                 'remarks'         => $input['remarks'] ?? null,
-                'user_id'         => $input['user_id'] ?? null,
+                'user_id'         => auth()->id(),
             ]);
 
             foreach ($input['details'] as $detail) {
                 $detail['knitting_production_id'] = $data->id;
+                $detail['user_id'] = auth()->id();
                 KnittingProductionDetail::create($detail);
             }
         });
@@ -89,23 +99,26 @@ class KnittingProductionController extends Controller
         return response($data);
     }
 
-    // EDIT – GET HEADER + DETAILS
     public function edit($id)
     {
-        $production = KnittingProduction::with(['jobMaster', 'machine'])->findOrFail($id);
+        $production = KnittingProduction::with(['jobMaster', 'machine'])
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
         $production['details'] = KnittingProductionDetail::where('knitting_production_id', $id)->get();
+
         return response($production);
     }
 
-    // UPDATE HEADER + DETAILS (DO NOT CHANGE production_no)
     public function update(Request $request, $id)
     {
         $input = $request->all();
 
         DB::transaction(function() use ($input, $id, &$production) {
-            $production = KnittingProduction::findOrFail($id);
 
-            // update header except production_no
+            $production = KnittingProduction::where('user_id', auth()->id())
+                ->findOrFail($id);
+
             $production->update([
                 'production_date' => $input['production_date'],
                 'job_card_id'     => $input['job_card_id'],
@@ -113,15 +126,14 @@ class KnittingProductionController extends Controller
                 'shift'           => $input['shift'] ?? null,
                 'operator_name'   => $input['operator_name'] ?? null,
                 'remarks'         => $input['remarks'] ?? null,
-                'user_id'         => $input['user_id'] ?? null,
+                'user_id'         => auth()->id(),
             ]);
 
-            // delete old details
             KnittingProductionDetail::where('knitting_production_id', $id)->delete();
 
-            // insert new details
             foreach ($input['details'] as $detail) {
                 $detail['knitting_production_id'] = $production->id;
+                $detail['user_id'] = auth()->id();
                 KnittingProductionDetail::create($detail);
             }
         });
@@ -129,13 +141,13 @@ class KnittingProductionController extends Controller
         return response($production);
     }
 
-    // SELECT LIST – FOR DROPDOWNS
     public function selectList(Request $request)
     {
         $search = $request->input('q');
 
         $query = KnittingProduction::with(['jobMaster:id,job_card_no', 'machine:id,machine_name'])
-            ->select('id', 'production_no', 'job_card_id', 'machine_id', 'production_date');
+            ->select('id', 'production_no', 'job_card_id', 'machine_id', 'production_date')
+            ->where('user_id', auth()->id());
 
         if ($search) {
             $query->where('production_no', 'LIKE', "%{$search}%");

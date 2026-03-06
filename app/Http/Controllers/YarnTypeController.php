@@ -4,95 +4,61 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\YarnType;
+use Illuminate\Support\Facades\Auth;
 use DB;
 
-class YarnTypeController extends Controller
+class YarnTypeController extends BaseController
 {
-    /**
-     * Display a listing of the resource.
-     */
+
     public function index(Request $request)
     {
-        $yarn = $request->all();
+        $page  = (int)$request->get('page',1);
+        $limit = (int)$request->get('limit',10);
+        $search = $request->get('searchInput');
 
-        $count = $yarn['limit'];
-        $page  = $yarn['curpage'];
+        $query = DB::table('yarn_types')
+            ->where('user_id',Auth::id())
+            ->select('id','user_id','yarn_type','created_at','updated_at');
 
-        $sorting = "desc";
+        if(!empty($search)){
+            $query->where('yarn_type','like',"%{$search}%");
+        }
 
-        $data = DB::table('yarn_types');
+        $query->orderBy('id','desc');
 
-        $total = $data->count();
-
-        $data = $data->take($count)
-                ->skip($count*($page-1))
-                ->orderby('yarn_types.id','desc')
-                ->get();
-
-        return response(['data' => $data , 'total' => $total]);
+        return response()->json(
+            $this->paginate($query,$page,$limit)
+        );
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        $yarntype = $request->all();
-        $yarntype = YarnType::create($yarntype);
-
-		return response($yarntype);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        $yarntype = $request->all();
-        $yarntype = YarnType::create($yarntype);
-
-        return response($yarntype);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-        $yarntype = YarnType::find($id);
-
-        return response($yarntype);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        $yarntype = YarnType::find($id);
-
-        return response($yarntype);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        $yarntype = YarnType::find($id);
         $input = $request->all();
-        $yarntype->update($input);
+        $input['user_id'] = Auth::id();
+
+        $yarntype = YarnType::create($input);
 
         return response($yarntype);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function show($id)
     {
-        $yarntype = YarnType::find($id);
+        return YarnType::where('user_id',Auth::id())->findOrFail($id);
+    }
+
+    public function update(Request $request,$id)
+    {
+        $yarntype = YarnType::where('user_id',Auth::id())->findOrFail($id);
+
+        $yarntype->update($request->all());
+
+        return response($yarntype);
+    }
+
+    public function destroy($id)
+    {
+        $yarntype = YarnType::where('user_id',Auth::id())->findOrFail($id);
+
         $yarntype->delete();
 
         return response($yarntype);
@@ -101,20 +67,15 @@ class YarnTypeController extends Controller
     public function YarnTypeSelectList(Request $request)
     {
         $search = $request->input('q');
-        
-        $query = DB::table('yarn_types')->select('id', 'yarn_type');
 
-        if ($search) {
-            $query->where('yarn_type', 'like', "%$search%");
+        $query = DB::table('yarn_types')
+            ->where('user_id',Auth::id())
+            ->select('id','yarn_type');
+
+        if($search){
+            $query->where('yarn_type','like',"%$search%");
         }
 
         return response()->json($query->get());
-    }
-
-    public function SingleYarnTypeData(Request $request,$id)
-    {
-        $query = DB::table('yarn_types')->select('id', 'yarn_type')->where('yarn_types.id',$id);
-
-        return response()->json($query->first());
     }
 }

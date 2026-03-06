@@ -24,6 +24,8 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\KnittingReportController;
 
+use App\Http\Controllers\AuthController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -35,9 +37,15 @@ use App\Http\Controllers\KnittingReportController;
 |
 */
 
+Route::post('/login', [AuthController::class, 'login'])->name('login');
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::post('/register', [AuthController::class, 'register']);
+
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::middleware('auth:sanctum')->group(function () {
 
 // ----------------- masters ----------------------------
 
@@ -63,7 +71,7 @@ Route::put('set_default/{id}', [BankController::class, 'setDefault']);
 
 // ----------------- inward ----------------------------
 
-Route::get('inward', [InwardController::class, 'index']);
+Route::get('inwards', [InwardController::class, 'index']);
 Route::post('inward_add', [InwardController::class, 'Store']);
 Route::get('inward_create', [InwardController::class, 'InwardCreate']);
 Route::get('inward_edit/{id}', [InwardController::class, 'InwardEdit']);
@@ -74,7 +82,7 @@ Route::post('/inward-details/{id}/link-job-card', [InwardController::class, 'lin
 
 // ----------------- outward ----------------------------
 
-Route::get('outward', [OutwardController::class, 'index']);
+Route::get('outwards', [OutwardController::class, 'index']);
 Route::post('outward_add', [OutwardController::class, 'Store']);
 Route::get('outward_create', [OutwardController::class, 'OutwardCreate']);
 Route::get('outward_edit/{id}', [OutwardController::class, 'OutwardEdit']);
@@ -174,3 +182,5 @@ Route::post('yarn-individual-customer', [ReportController::class, 'YarnTypeIndiv
 
 Route::post('reports/job-ledger', [KnittingReportController::class, 'jobLedger']);
 Route::post('reports/wastage', [KnittingReportController::class, 'wastageReport']);
+
+});

@@ -9,196 +9,235 @@ use App\Models\InvoiceDetail;
 use App\Models\AdditionalCharge;
 use App\Models\InvoiceTax;
 
-class InvoiceController extends Controller
+class InvoiceController extends BaseController
 {
-    /* ------------------------------------------------------------
-        LIST INVOICES WITH SEARCH + PAGINATION
-    ------------------------------------------------------------ */
-    public function index(Request $request)
-    {
-        $count   = $request->limit;
-        $page    = $request->curpage;
-        $search  = $request->searchInput;
-        $sorting = "desc";
 
-        $query = Invoice::with('customer');
+/* ------------------------------------------------------------
+   LIST INVOICES (USER BASED)
+------------------------------------------------------------ */
+public function index(Request $request)
+{
+    $page   = (int) $request->get('page', 1);
+    $limit  = (int) $request->get('limit', 10);
+    $search = $request->get('search');
 
-        if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('invoice_number', 'LIKE', "%$search%")
-                  ->orWhere('id', 'LIKE', "%$search%")
-                  ->orWhere('invoice_date', 'LIKE', "%$search%")
-                  ->orWhere('invoice_total', 'LIKE', "%$search%")
-                  ->orWhere('status', 'LIKE', "%$search%");
-            })
-            ->orWhereHas('customer', fn($q) =>
-                $q->where('customer_name', 'LIKE', "%$search%")
-            );
-        }
+    $query = Invoice::with('customer')
+        ->select('invoices.*')
+        ->where('invoices.user_id', auth()->id());   // ✅ USER BASED
 
-        $total = $query->count();
+    if (!empty($search)) {
 
-        $data = $query->orderBy('id', $sorting)
-                      ->skip($count * ($page - 1))
-                      ->take($count)
-                      ->get();
+        $query->where(function ($q) use ($search) {
 
-        return response(['data' => $data, 'total' => $total]);
+            $q->where('invoices.invoice_number', 'like', "%{$search}%")
+            ->orWhere('invoices.id', 'like', "%{$search}%")
+            ->orWhere('invoices.invoice_date', 'like', "%{$search}%")
+            ->orWhere('invoices.invoice_total', 'like', "%{$search}%")
+            ->orWhere('invoices.balance_amount', 'like', "%{$search}%")
+
+            ->orWhereHas('customer', function ($qc) use ($search) {
+                $qc->where('customer_name', 'like', "%{$search}%");
+            });
+
+        });
     }
 
-    /* ------------------------------------------------------------
-        SAFE INVOICE NUMBER (NO SKIP, NO DUPLICATE)
-        USING DB::lockForUpdate()
-    ------------------------------------------------------------ */
-    public function InvoiceCreate()
-    {
-        DB::beginTransaction();
+    $query->orderBy('invoices.id', 'desc');
+
+    return response()->json(
+        $this->paginate($query, $page, $limit)
+    );
+}
+
+
+/* ------------------------------------------------------------
+   SAFE INVOICE NUMBER
+------------------------------------------------------------ */
+public function InvoiceCreate()
+{
+    DB::beginTransaction();
+
+    $last = DB::table('invoices')
+        ->where('user_id', auth()->id())
+        ->lockForUpdate()
+        ->orderBy('invoice_number', 'DESC')
+        ->first();
+
+    $nextNumber = $last ? $last->invoice_number + 1 : 1;
+
+    DB::commit();
+
+    return $nextNumber;
+}
+
+
+/* ------------------------------------------------------------
+   STORE INVOICE
+------------------------------------------------------------ */
+public function store(Request $request)
+{
+
+    DB::beginTransaction();
+
+    try {
+        $input = $request->all();
+        /* ---------- Secure Invoice Number ---------- */
 
         $last = DB::table('invoices')
+            ->where('user_id', auth()->id())
             ->lockForUpdate()
             ->orderBy('invoice_number', 'DESC')
             ->first();
 
         $nextNumber = $last ? $last->invoice_number + 1 : 1;
 
+        $input['invoice_number'] = $nextNumber;
+        $input['user_id'] = auth()->id();   // ✅ SECURE
+
+
+        /* ---------- Create Invoice ---------- */
+        $invoice = Invoice::create($input);
+
+        /* ---------- Details ---------- */
+        foreach ($request->invoice_details ?? [] as $detail) {
+            $detail['invoice_id'] = $invoice->id;
+            $detail['user_id'] = auth()->id();
+
+            InvoiceDetail::create($detail);
+        }
+
+        /* ---------- Additional Charges ---------- */
+        foreach ($request->additional_charges ?? [] as $charge) {
+            $charge['invoice_id'] = $invoice->id;
+            $charge['user_id'] = auth()->id();
+
+            AdditionalCharge::create($charge);
+        }
+
+        /* ---------- Taxes ---------- */
+
+        foreach ($request->invoice_taxes ?? [] as $tax) {
+            $tax['invoice_id'] = $invoice->id;
+            $tax['user_id'] = auth()->id();
+
+            InvoiceTax::create($tax);
+        }
         DB::commit();
 
-        return $nextNumber;
+        return response()->json([
+            'success' => true,
+            'message' => 'Invoice created successfully',
+            'invoice' => $invoice
+        ], 201);
+
     }
 
-    /* ------------------------------------------------------------
-        STORE NEW INVOICE (React sends balance amount)
-        amount_received = initial only, editable
-    ------------------------------------------------------------ */
-    public function store(Request $request)
-    {
-        DB::beginTransaction();
+    catch (\Throwable $e) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => 'Error saving invoice: '.$e->getMessage()
+        ], 500);
+    }
 
-        try {
-            $input = $request->all();
+}
 
-            /* ------- Secure Invoice Number (NO SKIP) ------- */
-            $last = DB::table('invoices')
-                ->lockForUpdate()
-                ->orderBy('invoice_number', 'DESC')
-                ->first();
 
-            $nextNumber = $last ? $last->invoice_number + 1 : 1;
-            $input['invoice_number'] = $nextNumber;
+/* ------------------------------------------------------------
+   EDIT INVOICE
+------------------------------------------------------------ */
 
-            /* ------- Create Invoice ------- */
-            $invoice = Invoice::create($input);
+public function InvoiceEdit($id)
+{
 
-            /* ------- Details ------- */
-            foreach ($request->invoice_details ?? [] as $detail) {
-                $detail['invoice_id'] = $invoice->id;
-                $detail['user_id']    = $input['user_id'];
-                InvoiceDetail::create($detail);
-            }
+    $invoice = Invoice::with('customer')
+        ->where('user_id', auth()->id())
+        ->findOrFail($id);
 
-            /* ------- Additional Charges ------- */
-            foreach ($request->additional_charges ?? [] as $charge) {
-                $charge['invoice_id'] = $invoice->id;
-                $charge['user_id']    = $input['user_id'];
-                AdditionalCharge::create($charge);
-            }
+    $invoice['Items'] = InvoiceDetail::with('item')
+        ->where('invoice_id', $id)
+        ->where('user_id', auth()->id())
+        ->get();
 
-            /* ------- Taxes ------- */
-            foreach ($request->invoice_taxes ?? [] as $tax) {
-                $tax['invoice_id'] = $invoice->id;
-                $tax['user_id']    = $input['user_id'];
-                InvoiceTax::create($tax);
-            }
+    $invoice['AdditionalCharges'] = AdditionalCharge::where('invoice_id', $id)
+        ->where('user_id', auth()->id())
+        ->get();
 
-            DB::commit();
+    $invoice['InvoiceTaxes'] = InvoiceTax::where('invoice_id', $id)
+        ->where('user_id', auth()->id())
+        ->get();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Invoice created successfully',
-                'invoice' => $invoice,
-            ], 201);
+    return response($invoice);
+}
 
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Error saving invoice: ' . $e->getMessage(),
-            ], 500);
+
+/* ------------------------------------------------------------
+   UPDATE INVOICE
+------------------------------------------------------------ */
+
+public function InvoiceUpdate(Request $request, $id)
+{
+    DB::beginTransaction();
+    try {
+        $input = $request->all();
+
+        $invoice = Invoice::where('user_id', auth()->id())
+            ->findOrFail($id);
+
+        $invoice->update($input);
+
+        /* ---------- Delete Old ---------- */
+
+        InvoiceDetail::where('invoice_id', $id)->delete();
+        AdditionalCharge::where('invoice_id', $id)->delete();
+        InvoiceTax::where('invoice_id', $id)->delete();
+
+        /* ---------- Insert New ---------- */
+
+        foreach ($request->invoice_details ?? [] as $detail) {
+            $detail['invoice_id'] = $invoice->id;
+            $detail['user_id'] = auth()->id();
+
+            InvoiceDetail::create($detail);
         }
-    }
 
-    /* ------------------------------------------------------------
-        EDIT INVOICE WITH RELATIONS
-    ------------------------------------------------------------ */
-    public function InvoiceEdit($id)
-    {
-        $invoice = Invoice::with('customer')->findOrFail($id);
 
-        $invoice['Items'] = InvoiceDetail::with('item')
-                            ->where('invoice_id', $id)
-                            ->get();
+        foreach ($request->additional_charges ?? [] as $charge) {
+            $charge['invoice_id'] = $invoice->id;
+            $charge['user_id'] = auth()->id();
 
-        $invoice['AdditionalCharges'] = AdditionalCharge::where('invoice_id', $id)->get();
-
-        $invoice['InvoiceTaxes'] = InvoiceTax::where('invoice_id', $id)->get();
-
-        return response($invoice);
-    }
-
-    /* ------------------------------------------------------------
-        UPDATE INVOICE (Initial amount_received editable)
-        React updates balance_amount, controller does NOT modify.
-    ------------------------------------------------------------ */
-    public function InvoiceUpdate(Request $request, $id)
-    {
-        DB::beginTransaction();
-
-        try {
-            $input = $request->all();
-            $invoice = Invoice::findOrFail($id);
-
-            $invoice->update($input);
-
-            /* ------- Delete Old Relations ------- */
-            InvoiceDetail::where('invoice_id', $id)->delete();
-            AdditionalCharge::where('invoice_id', $id)->delete();
-            InvoiceTax::where('invoice_id', $id)->delete();
-
-            /* ------- Insert New Details ------- */
-            foreach ($request->invoice_details ?? [] as $detail) {
-                $detail['invoice_id'] = $invoice->id;
-                $detail['user_id']    = $input['user_id'];
-                InvoiceDetail::create($detail);
-            }
-
-            /* ------- Additional Charges ------- */
-            foreach ($request->additional_charges ?? [] as $charge) {
-                $charge['invoice_id'] = $invoice->id;
-                $charge['user_id']    = $input['user_id'];
-                AdditionalCharge::create($charge);
-            }
-
-            /* ------- Taxes ------- */
-            foreach ($request->invoice_taxes ?? [] as $tax) {
-                $tax['invoice_id'] = $invoice->id;
-                $tax['user_id']    = $input['user_id'];
-                InvoiceTax::create($tax);
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Invoice updated successfully',
-                'invoice' => $invoice,
-            ]);
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Error updating invoice: ' . $e->getMessage(),
-            ], 500);
+            AdditionalCharge::create($charge);
         }
+
+
+        foreach ($request->invoice_taxes ?? [] as $tax) {
+            $tax['invoice_id'] = $invoice->id;
+            $tax['user_id'] = auth()->id();
+
+            InvoiceTax::create($tax);
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Invoice updated successfully',
+            'invoice' => $invoice
+        ]);
+
     }
+
+    catch (\Throwable $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error updating invoice: '.$e->getMessage()
+        ], 500);
+
+    }
+
+}
+
 }
