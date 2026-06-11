@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\Inward;
 use App\Models\Outward;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 
 class Customer extends Model
@@ -23,14 +24,14 @@ class Customer extends Model
         'customer_address',
     ];
 
-    public function inward(): HasOne
+    public function inwards(): HasMany
     {
-        return $this->hasOne(Inward::class);
+        return $this->hasMany(Inward::class);
     }
 
-    public function outward(): HasOne
+    public function outwards(): HasMany
     {
-        return $this->hasOne(Outward::class);
+        return $this->hasMany(Outward::class);
     }
 
     public function state(): BelongsTo

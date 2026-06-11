@@ -12,39 +12,68 @@ class BankController extends BaseController
 
     public function index(Request $request)
     {
-        $count = $request->limit ?? 10;
-        $page  = $request->curpage ?? 1;
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->get('search');
 
-        $data = DB::table('banks')
-            ->where('user_id', Auth::id());
+        $query = DB::table('banks')
+            ->where('banks.user_id', Auth::id())
+            ->select(
+                'banks.id',
+                'banks.user_id',
+                'banks.bank_name',
+                'banks.account_number',
+                'banks.ifsc_code',
+                'banks.branch_name',
+                'banks.created_at',
+                'banks.updated_at'
+            );
 
-        $total = $data->count();
+        // 🔍 Search (same pattern as customer)
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('banks.bank_name', 'like', "%{$search}%")
+                    ->orWhere('banks.account_number', 'like', "%{$search}%")
+                    ->orWhere('banks.ifsc_code', 'like', "%{$search}%")
+                    ->orWhere('banks.branch_name', 'like', "%{$search}%");
+            });
+        }
 
-        $data = $data->take($count)
-            ->skip($count * ($page - 1))
-            ->orderBy('id', 'desc')
-            ->get();
+        // ✅ Same order style
+        $query->orderBy('banks.id', 'desc');
 
-        return response(['data' => $data, 'total' => $total]);
+        // ✅ Same pagination method as customer
+        return response()->json(
+            $this->paginate($query, $page, $limit)
+        );
     }
-
 
     public function store(Request $request)
     {
-        $input = $request->all();
+        try {
+            $input = $request->all();
+            $input['user_id'] = Auth::id();
 
-        $input['user_id'] = Auth::id();
+            // Handle default bank logic
+            if (!empty($input['is_default']) && $input['is_default']) {
+                Bank::where('user_id', Auth::id())
+                    ->update(['is_default' => false]);
+            }
 
-        if (!empty($input['is_default']) && $input['is_default']) {
-            Bank::where('user_id', Auth::id())
-                ->update(['is_default' => false]);
+            $bank = Bank::create($input);
+
+            return response()->json([
+                'message' => 'Bank Added Successfully',
+                'data' => $bank
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Add Bank',
+                'error' => $e->getMessage() // optional (remove in production)
+            ], 500);
         }
-
-        $bank = Bank::create($input);
-
-        return response()->json($bank);
     }
-
 
     public function show(string $id)
     {
@@ -54,7 +83,6 @@ class BankController extends BaseController
 
         return response($bank);
     }
-
 
     public function edit(string $id)
     {
@@ -68,21 +96,33 @@ class BankController extends BaseController
 
     public function update(Request $request, string $id)
     {
-        $bank = Bank::where('id', $id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
+        try {
+            $bank = Bank::where('id', $id)
+                ->where('user_id', Auth::id())
+                ->firstOrFail();
 
-        $input = $request->all();
+            $input = $request->all();
 
-        if (!empty($input['is_default']) && $input['is_default']) {
-            Bank::where('user_id', Auth::id())
-                ->where('id', '!=', $id)
-                ->update(['is_default' => false]);
+            // Handle default bank logic
+            if (!empty($input['is_default']) && $input['is_default']) {
+                Bank::where('user_id', Auth::id())
+                    ->where('id', '!=', $id)
+                    ->update(['is_default' => false]);
+            }
+
+            $bank->update($input);
+
+            return response()->json([
+                'message' => 'Bank Updated Successfully',
+                'data' => $bank
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Update Bank',
+                'error' => $e->getMessage() // optional (remove in production)
+            ], 500);
         }
-
-        $bank->update($input);
-
-        return response()->json($bank);
     }
 
 

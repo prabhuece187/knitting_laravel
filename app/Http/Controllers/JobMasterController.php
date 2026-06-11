@@ -104,7 +104,7 @@ class JobMasterController extends BaseController
             DB::commit();
 
             return response()->json([
-                'message' => 'Job created successfully',
+                'message' => 'Job Created Successfully',
                 'data' => $job
             ], 201);
 
@@ -113,7 +113,7 @@ class JobMasterController extends BaseController
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Error creating job',
+                'message' => 'Error Creating Job',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -148,7 +148,7 @@ class JobMasterController extends BaseController
             DB::commit();
 
             return response()->json([
-                'message' => 'Job updated successfully',
+                'message' => 'Job Updated Successfully',
                 'data' => $job
             ]);
 

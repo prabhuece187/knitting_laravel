@@ -18,10 +18,15 @@ class YarnTypeController extends BaseController
 
         $query = DB::table('yarn_types')
             ->where('user_id',Auth::id())
-            ->select('id','user_id','yarn_type','created_at','updated_at');
+            ->select('id','user_id','yarn_type','yarn_gauge','yarn_dia','yarn_gsm','created_at','updated_at');
 
-        if(!empty($search)){
-            $query->where('yarn_type','like',"%{$search}%");
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('customers.yarn_types', 'like', "%{$search}%")
+                    ->orWhere('yarn_types.yarn_gauge', 'like', "%{$search}%")
+                    ->orWhere('yarn_types.yarn_gsm', 'like', "%{$search}%")
+                    ->orWhere('yarn_types.yarn_dia', 'like', "%{$search}%");
+            });
         }
 
         $query->orderBy('id','desc');
@@ -33,12 +38,23 @@ class YarnTypeController extends BaseController
 
     public function store(Request $request)
     {
-        $input = $request->all();
-        $input['user_id'] = Auth::id();
+        try {
+            $input = $request->all();
+            $input['user_id'] = Auth::id();
 
-        $yarntype = YarnType::create($input);
+            $yarntype = YarnType::create($input);
 
-        return response($yarntype);
+            return response()->json([
+                'message' => 'Yarn Type Added Successfully',
+                'data' => $yarntype
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Add Yarn Type',
+                'error' => app()->environment('local') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
     public function show($id)
@@ -46,13 +62,26 @@ class YarnTypeController extends BaseController
         return YarnType::where('user_id',Auth::id())->findOrFail($id);
     }
 
-    public function update(Request $request,$id)
+    public function update(Request $request, $id)
     {
-        $yarntype = YarnType::where('user_id',Auth::id())->findOrFail($id);
+        try {
+            $yarntype = YarnType::where('user_id', Auth::id())
+                ->where('id', $id)
+                ->firstOrFail();
 
-        $yarntype->update($request->all());
+            $yarntype->update($request->all());
 
-        return response($yarntype);
+            return response()->json([
+                'message' => 'Yarn Type Updated Successfully',
+                'data' => $yarntype
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Update Yarn Type',
+                'error' => app()->environment('local') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
     public function destroy($id)

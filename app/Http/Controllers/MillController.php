@@ -45,12 +45,23 @@ class MillController extends BaseController
 
     public function store(Request $request)
     {
-        $input = $request->all();
-        $input['user_id'] = Auth::id();
+        try {
+            $input = $request->all();
+            $input['user_id'] = Auth::id();
 
-        $mill = Mill::create($input);
+            $mill = Mill::create($input);
 
-        return response($mill);
+            return response()->json([
+                'message' => 'Mill Added Successfully',
+                'data' => $mill
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Add Mill',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show($id)
@@ -65,11 +76,23 @@ class MillController extends BaseController
 
     public function update(Request $request,$id)
     {
-        $mill = Mill::where('user_id',Auth::id())->findOrFail($id);
+        try {
+            $mill = Mill::where('user_id', Auth::id())
+                ->findOrFail($id);
 
-        $mill->update($request->all());
+            $mill->update($request->all());
 
-        return response($mill);
+            return response()->json([
+                'message' => 'Mill Updated Successfully',
+                'data' => $mill
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Update Mill',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function destroy($id)

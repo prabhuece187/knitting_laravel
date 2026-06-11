@@ -61,27 +61,65 @@ class KnittingProductionReturnController extends BaseController
         return response()->json(['next_return_no' => $next]);
     }
 
+    // public function store(Request $request)
+    // {
+    //     $jobCardId = $request->job_card_id;
+
+    //     $productionRetrunNo = $this->returnCreate()->getData()->next_return_no;
+
+    //     $producedQty = KnittingProductionDetail::whereHas('production', function ($q) use ($jobCardId) {
+    //         $q->where('job_card_id', $jobCardId);
+    //     })->sum('produced_weight');
+
+    //     $alreadyReturned = KnittingProductionReturn::where('job_card_id', $jobCardId)
+    //         ->sum('return_weight');
+
+    //     if (($request->return_weight + $alreadyReturned) > $producedQty) {
+    //         return response(['error' => 'Return quantity exceeds produced quantity'], 422);
+    //     }
+
+    //     DB::transaction(function () use ($request, $productionRetrunNo, &$data) {
+
+    //         $data = KnittingProductionReturn::create([
+    //             'return_no'        => $productionRetrunNo,
+    //             'return_date'      => $request->return_date,
+    //             'job_card_id'      => $request->job_card_id,
+    //             'production_id'    => $request->production_id ?? null,
+    //             'return_weight'    => $request->return_weight,
+    //             'return_reason'    => $request->return_reason,
+    //             'rework_required'  => $request->rework_required ?? false,
+    //             'remarks'          => $request->remarks ?? null,
+    //             'user_id'          => auth()->id(),
+    //         ]);
+    //     });
+
+    //     return response($data);
+    // }
+
     public function store(Request $request)
     {
-        $jobCardId = $request->job_card_id;
+        DB::beginTransaction();
 
-        $productionRetrunNo = $this->returnCreate()->getData()->next_return_no;
+        try {
+            $jobCardId = $request->job_card_id;
 
-        $producedQty = KnittingProductionDetail::whereHas('production', function ($q) use ($jobCardId) {
-            $q->where('job_card_id', $jobCardId);
-        })->sum('produced_weight');
+            $productionReturnNo = $this->returnCreate()->getData()->next_return_no;
 
-        $alreadyReturned = KnittingProductionReturn::where('job_card_id', $jobCardId)
-            ->sum('return_weight');
+            $producedQty = KnittingProductionDetail::whereHas('production', function ($q) use ($jobCardId) {
+                $q->where('job_card_id', $jobCardId);
+            })->sum('produced_weight');
 
-        if (($request->return_weight + $alreadyReturned) > $producedQty) {
-            return response(['error' => 'Return quantity exceeds produced quantity'], 422);
-        }
+            $alreadyReturned = KnittingProductionReturn::where('job_card_id', $jobCardId)
+                ->sum('return_weight');
 
-        DB::transaction(function () use ($request, $productionRetrunNo, &$data) {
+            if (($request->return_weight + $alreadyReturned) > $producedQty) {
+                return response()->json([
+                    'message' => 'Return quantity exceeds produced quantity'
+                ], 422);
+            }
 
             $data = KnittingProductionReturn::create([
-                'return_no'        => $productionRetrunNo,
+                'return_no'        => $productionReturnNo,
                 'return_date'      => $request->return_date,
                 'job_card_id'      => $request->job_card_id,
                 'production_id'    => $request->production_id ?? null,
@@ -91,9 +129,22 @@ class KnittingProductionReturnController extends BaseController
                 'remarks'          => $request->remarks ?? null,
                 'user_id'          => auth()->id(),
             ]);
-        });
 
-        return response($data);
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Return Created Successfully',
+                'data'    => $data
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Error creating return',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function edit($id)
@@ -105,34 +156,85 @@ class KnittingProductionReturnController extends BaseController
         );
     }
 
+    // public function update(Request $request, $id)
+    // {
+    //     $jobCardId = $request->job_card_id;
+
+    //     $producedQty = KnittingProductionDetail::whereHas('production', function($q) use ($jobCardId){
+    //         $q->where('job_card_id',$jobCardId);
+    //     })->sum('produced_weight');
+
+    //     $alreadyReturned = KnittingProductionReturn::where('job_card_id',$jobCardId)
+    //                             ->where('id','!=',$id)
+    //                             ->sum('return_weight');
+
+    //     if(($request->return_weight + $alreadyReturned) > $producedQty){
+    //         return response(['error'=>'Return quantity exceeds produced quantity'],422);
+    //     }
+
+    //     DB::transaction(function() use ($request,$id,&$return){
+
+    //         $return = KnittingProductionReturn::where('user_id', auth()->id())
+    //                     ->findOrFail($id);
+
+    //         $data = $request->all();
+    //         $data['user_id'] = auth()->id();
+
+    //         $return->update($data);
+    //     });
+
+    //     return response($return);
+    // }
+
     public function update(Request $request, $id)
     {
-        $jobCardId = $request->job_card_id;
+        DB::beginTransaction();
 
-        $producedQty = KnittingProductionDetail::whereHas('production', function($q) use ($jobCardId){
-            $q->where('job_card_id',$jobCardId);
-        })->sum('produced_weight');
+        try {
+            $jobCardId = $request->job_card_id;
 
-        $alreadyReturned = KnittingProductionReturn::where('job_card_id',$jobCardId)
-                                ->where('id','!=',$id)
-                                ->sum('return_weight');
+            $producedQty = KnittingProductionDetail::whereHas('production', function ($q) use ($jobCardId) {
+                $q->where('job_card_id', $jobCardId);
+            })->sum('produced_weight');
 
-        if(($request->return_weight + $alreadyReturned) > $producedQty){
-            return response(['error'=>'Return quantity exceeds produced quantity'],422);
-        }
+            $alreadyReturned = KnittingProductionReturn::where('job_card_id', $jobCardId)
+                ->where('id', '!=', $id)
+                ->sum('return_weight');
 
-        DB::transaction(function() use ($request,$id,&$return){
+            if (($request->return_weight + $alreadyReturned) > $producedQty) {
+                return response()->json([
+                    'message' => 'Return quantity exceeds produced quantity'
+                ], 422);
+            }
 
             $return = KnittingProductionReturn::where('user_id', auth()->id())
-                        ->findOrFail($id);
+                ->findOrFail($id);
 
-            $data = $request->all();
-            $data['user_id'] = auth()->id();
+            $return->update([
+                'return_date'     => $request->return_date,
+                'job_card_id'     => $request->job_card_id,
+                'production_id'   => $request->production_id ?? null,
+                'return_weight'   => $request->return_weight,
+                'return_reason'   => $request->return_reason,
+                'rework_required' => $request->rework_required ?? false,
+                'remarks'         => $request->remarks ?? null,
+            ]);
 
-            $return->update($data);
-        });
+            DB::commit();
 
-        return response($return);
+            return response()->json([
+                'message' => 'Return Updated Successfully',
+                'data'    => $return
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Error updating return',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function selectList(Request $request)

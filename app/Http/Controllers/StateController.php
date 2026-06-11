@@ -58,10 +58,22 @@ class StateController extends BaseController
      */
     public function store(Request $request)
     {
-        $state = $request->all();
-        $state = State::create($state);
+        try {
+            $input = $request->all();
 
-        return response($state);
+            $state = State::create($input);
+
+            return response()->json([
+                'message' => 'State Added Successfully',
+                'data' => $state
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Add State',
+                'error' => app()->environment('local') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
     /**
@@ -89,11 +101,22 @@ class StateController extends BaseController
      */
     public function update(Request $request, string $id)
     {
-        $state = State::find($id);
-        $input = $request->all();
-        $state->update($input);
+        try {
+            $state = State::findOrFail($id);
 
-        return response($state);
+            $state->update($request->all());
+
+            return response()->json([
+                'message' => 'State Updated Successfully',
+                'data' => $state
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Update State',
+                'error' => app()->environment('local') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
     /**

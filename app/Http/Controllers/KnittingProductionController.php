@@ -70,15 +70,45 @@ class KnittingProductionController extends BaseController
         ]);
     }
 
+    // public function store(Request $request)
+    // {
+    //     $input = $request->all();
+
+    //     DB::transaction(function() use ($input, &$data) {
+
+    //         $productionNo = $this->productionCreate()->getData()->pro_no;
+
+    //         $data = KnittingProduction::create([
+    //             'production_no'   => $productionNo,
+    //             'production_date' => $input['production_date'],
+    //             'job_card_id'     => $input['job_card_id'],
+    //             'machine_id'      => $input['machine_id'] ?? null,
+    //             'shift'           => $input['shift'] ?? null,
+    //             'operator_name'   => $input['operator_name'] ?? null,
+    //             'remarks'         => $input['remarks'] ?? null,
+    //             'user_id'         => auth()->id(),
+    //         ]);
+
+    //         foreach ($input['details'] as $detail) {
+    //             $detail['knitting_production_id'] = $data->id;
+    //             $detail['user_id'] = auth()->id();
+    //             KnittingProductionDetail::create($detail);
+    //         }
+    //     });
+
+    //     return response($data);
+    // }
+
     public function store(Request $request)
     {
-        $input = $request->all();
+        DB::beginTransaction();
 
-        DB::transaction(function() use ($input, &$data) {
+        try {
+            $input = $request->all();
 
             $productionNo = $this->productionCreate()->getData()->pro_no;
 
-            $data = KnittingProduction::create([
+            $production = KnittingProduction::create([
                 'production_no'   => $productionNo,
                 'production_date' => $input['production_date'],
                 'job_card_id'     => $input['job_card_id'],
@@ -89,14 +119,35 @@ class KnittingProductionController extends BaseController
                 'user_id'         => auth()->id(),
             ]);
 
-            foreach ($input['details'] as $detail) {
-                $detail['knitting_production_id'] = $data->id;
-                $detail['user_id'] = auth()->id();
-                KnittingProductionDetail::create($detail);
+            foreach ($input['details'] ?? [] as $detail) {
+                KnittingProductionDetail::create([
+                    'knitting_production_id' => $production->id,
+                    'user_id'                => auth()->id(),
+                    'item_id'                => $detail['item_id'] ?? null,
+                    'qty'                    => $detail['qty'] ?? 0,
+                    'remarks'                => $detail['remarks'] ?? null,
+                    'produced_weight'        => $detail['produced_weight'] ?? 0,
+                    'rolls_count'        => $detail['rolls_count'] ?? 0,
+                    'dia'        => $detail['dia'] ?? 0,
+                    'gsm'        => $detail['gsm'] ?? 0,
+                ]);
             }
-        });
 
-        return response($data);
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Production Created Successfully',
+                'data'    => $production
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Error creating production',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function edit($id)
@@ -110,11 +161,43 @@ class KnittingProductionController extends BaseController
         return response($production);
     }
 
+    // public function update(Request $request, $id)
+    // {
+    //     $input = $request->all();
+
+    //     DB::transaction(function() use ($input, $id, &$production) {
+
+    //         $production = KnittingProduction::where('user_id', auth()->id())
+    //             ->findOrFail($id);
+
+    //         $production->update([
+    //             'production_date' => $input['production_date'],
+    //             'job_card_id'     => $input['job_card_id'],
+    //             'machine_id'      => $input['machine_id'] ?? null,
+    //             'shift'           => $input['shift'] ?? null,
+    //             'operator_name'   => $input['operator_name'] ?? null,
+    //             'remarks'         => $input['remarks'] ?? null,
+    //             'user_id'         => auth()->id(),
+    //         ]);
+
+    //         KnittingProductionDetail::where('knitting_production_id', $id)->delete();
+
+    //         foreach ($input['details'] as $detail) {
+    //             $detail['knitting_production_id'] = $production->id;
+    //             $detail['user_id'] = auth()->id();
+    //             KnittingProductionDetail::create($detail);
+    //         }
+    //     });
+
+    //     return response($production);
+    // }
+
     public function update(Request $request, $id)
     {
-        $input = $request->all();
+        DB::beginTransaction();
 
-        DB::transaction(function() use ($input, $id, &$production) {
+        try {
+            $input = $request->all();
 
             $production = KnittingProduction::where('user_id', auth()->id())
                 ->findOrFail($id);
@@ -126,19 +209,41 @@ class KnittingProductionController extends BaseController
                 'shift'           => $input['shift'] ?? null,
                 'operator_name'   => $input['operator_name'] ?? null,
                 'remarks'         => $input['remarks'] ?? null,
-                'user_id'         => auth()->id(),
             ]);
 
+            // Delete old details
             KnittingProductionDetail::where('knitting_production_id', $id)->delete();
 
-            foreach ($input['details'] as $detail) {
-                $detail['knitting_production_id'] = $production->id;
-                $detail['user_id'] = auth()->id();
-                KnittingProductionDetail::create($detail);
+            // Insert new details
+            foreach ($input['details'] ?? [] as $detail) {
+                KnittingProductionDetail::create([
+                    'knitting_production_id' => $production->id,
+                    'user_id'                => auth()->id(),
+                    'item_id'                => $detail['item_id'] ?? null,
+                    'qty'                    => $detail['qty'] ?? 0,
+                    'remarks'                => $detail['remarks'] ?? null,
+                    'produced_weight'        => $detail['produced_weight'] ?? 0,
+                    'rolls_count'            => $detail['rolls_count'] ?? 0,
+                    'dia'                    => $detail['dia'] ?? 0,
+                    'gsm'                    => $detail['gsm'] ?? 0,
+                ]);
             }
-        });
 
-        return response($production);
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Production Updated Successfully',
+                'data'    => $production
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Error updating production',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function selectList(Request $request)

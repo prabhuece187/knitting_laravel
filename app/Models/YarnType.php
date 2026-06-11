@@ -14,15 +14,18 @@ class YarnType extends Model
     protected $fillable = [
         'user_id',
         'yarn_type',
+        'yarn_gauge',
+        'yarn_dia',
+        'yarn_gsm',
     ];
 
-    public function inward_detail(): HasOne
+    public function inward_details()
     {
-        return $this->hasOne(InwardDetail::class);
+        return $this->hasMany(InwardDetail::class);
     }
 
-    public function outward_detail(): HasOne
+    public function outward_details()
     {
-        return $this->hasOne(OutwardDetail::class);
+        return $this->hasMany(OutwardDetail::class);
     }
 }

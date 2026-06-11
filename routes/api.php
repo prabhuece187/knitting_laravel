@@ -10,6 +10,7 @@ use App\Http\Controllers\StateController;
 use App\Http\Controllers\BankController;
 use App\Http\Controllers\KnittingMachineController;
 use App\Http\Controllers\JobMasterController;
+use App\Http\Controllers\DashboardController;
 
 use App\Http\Controllers\InwardController;
 use App\Http\Controllers\OutwardController;
@@ -46,6 +47,10 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+
+// ----------------- Dashboard ----------------------------
+
+Route::get('/dashboard', [DashboardController::class, 'index']);
 
 // ----------------- masters ----------------------------
 

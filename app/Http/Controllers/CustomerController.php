@@ -58,14 +58,23 @@ class CustomerController extends BaseController
      */
     public function store(Request $request)
     {
-        $input = $request->all();
+        try {
+            $input = $request->all();
+            $input['user_id'] = Auth::id();
 
-        // automatically attach logged user id
-        $input['user_id'] = Auth::id();
+            $customer = Customer::create($input);
 
-        $customer = Customer::create($input);
+            return response()->json([
+                'message' => 'Customer Added Successfully',
+                'data' => $customer
+            ], 201);
 
-        return response()->json($customer);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Add Customer',
+                'error' => $e->getMessage() // optional (remove in production if needed)
+            ], 500);
+        }
     }
 
     /**
@@ -98,13 +107,24 @@ class CustomerController extends BaseController
      */
     public function update(Request $request, string $id)
     {
-        $customer = Customer::where('user_id', Auth::id())
-            ->where('id', $id)
-            ->firstOrFail();
+        try {
+            $customer = Customer::where('user_id', Auth::id())
+                ->where('id', $id)
+                ->firstOrFail();
 
-        $customer->update($request->all());
+            $customer->update($request->all());
 
-        return response()->json($customer);
+            return response()->json([
+                'message' => 'Customer updated successfully',
+                'data' => $customer
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to update customer',
+                'error' => app()->environment('local') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
     /**

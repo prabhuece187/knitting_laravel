@@ -52,14 +52,23 @@ class ItemController extends BaseController
      */
     public function store(Request $request)
     {
-        $input = $request->all();
+        try {
+            $input = $request->all();
+            $input['user_id'] = Auth::id();
 
-        // attach logged user id
-        $input['user_id'] = Auth::id();
+            $item = Item::create($input);
 
-        $item = Item::create($input);
+            return response()->json([
+                'message' => 'Item Added Successfully',
+                'data' => $item
+            ], 201);
 
-        return response()->json($item);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to add item',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -91,13 +100,24 @@ class ItemController extends BaseController
      */
     public function update(Request $request, string $id)
     {
-        $item = Item::where('user_id', Auth::id())
-            ->where('id', $id)
-            ->firstOrFail();
+        try {
+            $item = Item::where('user_id', Auth::id())
+                ->where('id', $id)
+                ->firstOrFail();
 
-        $item->update($request->all());
+            $item->update($request->all());
 
-        return response()->json($item);
+            return response()->json([
+                'message' => 'Item Updated Successfully',
+                'data' => $item
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to update item',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

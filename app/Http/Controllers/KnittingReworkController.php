@@ -63,22 +63,56 @@ class KnittingReworkController extends BaseController
         return response()->json(['next_rework_no' => $next]);
     }
 
+    // public function store(Request $request)
+    // {
+
+    //     $returnId = $request->production_return_id;
+
+    //     $returnedQty = KnittingProductionReturn::where('id',$returnId)
+    //                         ->value('return_weight');
+
+    //     $alreadyReworked = KnittingRework::where('production_return_id',$returnId)
+    //                             ->sum('rework_weight');
+
+    //     if(($request->rework_weight + $alreadyReworked) > $returnedQty){
+    //         return response(['error'=>'Rework quantity exceeds returned quantity'],422);
+    //     }
+
+    //     DB::transaction(function() use ($request,&$data){
+
+    //         $data = KnittingRework::create([
+    //             'rework_no'            => $this->reworkCreate()->getData()->next_rework_no,
+    //             'rework_date'          => $request->rework_date,
+    //             'production_return_id' => $request->production_return_id,
+    //             'job_card_id'          => $request->job_card_id ?? null,
+    //             'rework_weight'        => $request->rework_weight,
+    //             'remarks'              => $request->remarks ?? null,
+    //             'user_id'              => Auth::id(),
+    //         ]);
+
+    //     });
+
+    //     return response($data);
+    // }
+
     public function store(Request $request)
     {
+        DB::beginTransaction();
 
-        $returnId = $request->production_return_id;
+        try {
+            $returnId = $request->production_return_id;
 
-        $returnedQty = KnittingProductionReturn::where('id',$returnId)
-                            ->value('return_weight');
+            $returnedQty = KnittingProductionReturn::where('id', $returnId)
+                ->value('return_weight');
 
-        $alreadyReworked = KnittingRework::where('production_return_id',$returnId)
-                                ->sum('rework_weight');
+            $alreadyReworked = KnittingRework::where('production_return_id', $returnId)
+                ->sum('rework_weight');
 
-        if(($request->rework_weight + $alreadyReworked) > $returnedQty){
-            return response(['error'=>'Rework quantity exceeds returned quantity'],422);
-        }
-
-        DB::transaction(function() use ($request,&$data){
+            if (($request->rework_weight + $alreadyReworked) > $returnedQty) {
+                return response()->json([
+                    'message' => 'Rework quantity exceeds returned quantity'
+                ], 422);
+            }
 
             $data = KnittingRework::create([
                 'rework_no'            => $this->reworkCreate()->getData()->next_rework_no,
@@ -87,12 +121,24 @@ class KnittingReworkController extends BaseController
                 'job_card_id'          => $request->job_card_id ?? null,
                 'rework_weight'        => $request->rework_weight,
                 'remarks'              => $request->remarks ?? null,
-                'user_id'              => Auth::id(), // ✅ AUTH USER
+                'user_id'              => auth()->id(),
             ]);
 
-        });
+            DB::commit();
 
-        return response($data);
+            return response()->json([
+                'message' => 'Rework Created Successfully',
+                'data'    => $data
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Error creating rework',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function edit($id)
@@ -102,30 +148,78 @@ class KnittingReworkController extends BaseController
         );
     }
 
-    public function update(Request $request,$id)
+    // public function update(Request $request,$id)
+    // {
+
+    //     $returnId = $request->production_return_id;
+
+    //     $returnedQty = KnittingProductionReturn::where('id',$returnId)
+    //                         ->value('return_weight');
+
+    //     $alreadyReworked = KnittingRework::where('production_return_id',$returnId)
+    //                             ->where('id','!=',$id)
+    //                             ->sum('rework_weight');
+
+    //     if(($request->rework_weight + $alreadyReworked) > $returnedQty){
+    //         return response(['error'=>'Rework quantity exceeds returned quantity'],422);
+    //     }
+
+    //     DB::transaction(function() use ($request,$id,&$rework){
+
+    //         $rework = KnittingRework::findOrFail($id);
+    //         $rework->update($request->all());
+
+    //     });
+
+    //     return response($rework);
+    // }
+
+    public function update(Request $request, $id)
     {
+        DB::beginTransaction();
 
-        $returnId = $request->production_return_id;
+        try {
+            $returnId = $request->production_return_id;
 
-        $returnedQty = KnittingProductionReturn::where('id',$returnId)
-                            ->value('return_weight');
+            $returnedQty = KnittingProductionReturn::where('id', $returnId)
+                ->value('return_weight');
 
-        $alreadyReworked = KnittingRework::where('production_return_id',$returnId)
-                                ->where('id','!=',$id)
-                                ->sum('rework_weight');
+            $alreadyReworked = KnittingRework::where('production_return_id', $returnId)
+                ->where('id', '!=', $id)
+                ->sum('rework_weight');
 
-        if(($request->rework_weight + $alreadyReworked) > $returnedQty){
-            return response(['error'=>'Rework quantity exceeds returned quantity'],422);
+            if (($request->rework_weight + $alreadyReworked) > $returnedQty) {
+                return response()->json([
+                    'message' => 'Rework quantity exceeds returned quantity'
+                ], 422);
+            }
+
+            $rework = KnittingRework::where('user_id', auth()->id())
+                ->findOrFail($id);
+
+            $rework->update([
+                'rework_date'          => $request->rework_date,
+                'production_return_id' => $request->production_return_id,
+                'job_card_id'          => $request->job_card_id ?? null,
+                'rework_weight'        => $request->rework_weight,
+                'remarks'              => $request->remarks ?? null,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Rework Updated Successfully',
+                'data'    => $rework
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Error updating rework',
+                'error'   => $e->getMessage()
+            ], 500);
         }
-
-        DB::transaction(function() use ($request,$id,&$rework){
-
-            $rework = KnittingRework::findOrFail($id);
-            $rework->update($request->all());
-
-        });
-
-        return response($rework);
     }
 
 }

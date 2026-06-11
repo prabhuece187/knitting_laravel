@@ -49,12 +49,23 @@ class KnittingMachineController extends BaseController
 
     public function store(Request $request)
     {
-        $input = $request->all();
-        $input['user_id'] = Auth::id();
+        try {
+            $input = $request->all();
+            $input['user_id'] = Auth::id();
 
-        $machine = KnittingMachine::create($input);
+            $machine = KnittingMachine::create($input);
 
-        return response()->json($machine);
+            return response()->json([
+                'message' => 'Machine Added Successfully',
+                'data' => $machine
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Add Machine',
+                'error' => app()->environment('local') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
     public function show($id)
@@ -62,13 +73,26 @@ class KnittingMachineController extends BaseController
         return KnittingMachine::where('user_id',Auth::id())->findOrFail($id);
     }
 
-    public function update(Request $request,$id)
+    public function update(Request $request, $id)
     {
-        $machine = KnittingMachine::where('user_id',Auth::id())->findOrFail($id);
+        try {
+            $machine = KnittingMachine::where('user_id', Auth::id())
+                ->where('id', $id)
+                ->firstOrFail();
 
-        $machine->update($request->all());
+            $machine->update($request->all());
 
-        return response()->json($machine);
+            return response()->json([
+                'message' => 'Machine Updated Successfully',
+                'data' => $machine
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to Update Machine',
+                'error' => app()->environment('local') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
     public function destroy($id)
